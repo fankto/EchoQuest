@@ -49,12 +49,12 @@ You need to request access to these models on the Hugging Face website and obtai
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/interview-management-system.git
-   cd interview-management-system
+   git clone https://github.com/TobiFank/EchoQuest.git
+   cd EchoQuest
    ```
 
 2. Set up environment variables:
-   Create a `.env` file in the root directory with the following content:
+   Create a `.env` file in the backend directory with the following content:
    ```
    HF_TOKEN=your_huggingface_token_here
    ```
