@@ -4,3 +4,4 @@
 *.cpython-310.pyc
 /backend/src/interview_manager/permanent_storage/
 /backend/src/audio_processor/uploads/
+.idea/
