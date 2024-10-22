@@ -1,6 +1,6 @@
-# Interview Management System
+# EchoQuest
 
-The Interview Management System is a comprehensive tool designed to streamline the process of conducting, transcribing, and analyzing semi-guided interviews. This application helps interviewers manage questionnaires, process audio recordings, generate transcriptions, and automatically answer predefined questions based on the interview content.
+EchoQuest is a comprehensive tool designed to streamline the process of conducting, transcribing, and analyzing semi-guided interviews. This application helps interviewers manage questionnaires, process audio recordings, generate transcriptions, and automatically answer predefined questions based on the interview content.
 
 ![Application Dashboard](images/dashboard.png)
 
@@ -33,7 +33,7 @@ The Interview Management System is a comprehensive tool designed to streamline t
 - **Question Answering**: Custom LLM-based system
 
 ## Prerequisites
-Before installing the Interview Management System, ensure you have the following:
+Before installing EchoQuest, ensure you have the following:
 
 * Docker and Docker Compose installed on your system
 * A GPU with at least 10GB VRAM
@@ -121,7 +121,7 @@ You need to request access to these models on the Hugging Face website and obtai
 
 ## Architecture
 
-The Interview Management System follows a client-server architecture:
+EchoQuest follows a client-server architecture:
 
 - **Frontend**: React-based single-page application
 - **Backend**: FastAPI server handling API requests
@@ -134,7 +134,7 @@ The Interview Management System follows a client-server architecture:
 
 ## Contributing
 
-Contributions to the Interview Management System are welcome! Please follow these steps:
+Contributions to EchoQuest are welcome! Please follow these steps:
 
 1. Fork the repository
 2. Create a new branch: `git checkout -b feature/your-feature-name`
