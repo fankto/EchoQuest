@@ -1,0 +1,46 @@
+version: '3.11'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./backend/src/audio_processor/temp:/app/src/audio_processor/temp
+      - ./backend/src/audio_processor/uploads:/app/src/audio_processor/uploads
+      - ./backend/src/interview_manager/permanent_storage:/app/src/interview_manager/permanent_storage
+      - ./backend/src/app.db:/app/src/app.db
+      - ./backend/.env:/app/.env
+      - model_cache:/root/.cache/huggingface
+    environment:
+      - PYTHONUNBUFFERED=1
+      - HF_TOKEN=${HF_TOKEN}
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+    command: poetry run uvicorn src.main:app --host 0.0.0.0 --reload
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: yarn start
+
+volumes:
+  node_modules:
+  model_cache:
