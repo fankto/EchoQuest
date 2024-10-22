@@ -1,0 +1,79 @@
+[tool.poetry]
+name = "audio-processor"
+version = "0.1.0"
+description = "Modular audio processing module for Voice-to-Text Interview Analysis System"
+authors = ["Your Name <you@example.com>"]
+packages = [
+    { include = "audio_processor", from = "src" },
+    { include = "questionnaire_manager", from = "src" },
+    { include = "interview_manager", from = "src" },
+    { include = "audio_transcription", from = "src" },
+    { include = "question_answerer", from = "src" },
+    { include = "transcription", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "^0.109.2"
+uvicorn = "^0.27.1"
+pydub = "^0.25.1"
+python-multipart = "^0.0.9"
+pydantic = {extras = ["dotenv"], version = "^2.5.3"}
+pydantic-settings = "^2.1.0"
+python-dotenv = "^1.0.1"
+scipy = "^1.12.0"
+transformers = "^4.45.2"
+numpy = "^1.23.0"
+noisereduce = "^3.0.3"
+speechbrain = "^1.0.1"
+webrtcvad = "^2.0.10"
+soundfile = "^0.12.1"
+pyroomacoustics = "^0.7.7"
+asteroid = "^0.7.0"
+scikit-learn = "^1.5.2"
+python-docx = "^1.1.2"
+pypdf2 = "^3.0.1"
+sqlalchemy = "^2.0.35"
+docx2txt = "^0.8"
+accelerate = "^1.0.1"
+bitsandbytes = "^0.44.1"
+guidance = "^0.1.16"
+json5 = "^0.9.25"
+pyyaml = "^6.0.2"
+pytest-order = "^1.3.0"
+llvmlite = "^0.43.0"
+pyannote-audio = "^3.3.2"
+gtts = "^2.5.3"
+python-dateutil = "^2.9.0.post0"
+aiofiles = "^24.1.0"
+librosa = "^0.10.2.post1"
+torch = {version = "^2.5.0+cu121", source = "pytorch"}
+torchvision = {version = "^0.20.0+cu121", source = "pytorch"}
+torchaudio = {version = "^2.5.0+cu121", source = "pytorch"}
+huggingface-hub = "^0.26.0"
+speechbox = {git = "https://github.com/huggingface/speechbox.git"}
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.0.0"
+httpx = "^0.26.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-p no:xdist"
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gpu: marks tests that require GPU",]
+
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
+
+[tool.poetry.scripts]
+start = "uvicorn:main"
