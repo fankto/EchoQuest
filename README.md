@@ -1,5 +1,7 @@
 # EchoQuest
 
+![License: Custom Non-Commercial](https://img.shields.io/badge/License-Custom%20Non--Commercial-red.svg)
+
 EchoQuest is a tool designed to streamline the process of conducting, transcribing, and analyzing semi-guided interviews. This application helps interviewers manage questionnaires, process audio recordings, generate transcriptions, and automatically answer predefined questions based on the interview content.
 
 ![Application Dashboard](images/dashboard.png)
@@ -143,8 +145,14 @@ Contributions to EchoQuest are welcome! Please follow these steps:
 5. Submit a pull request
 
 ## License
+This project is licensed under a Custom Non-Commercial, Contribution-Based License. 
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Key Points:
+- **Private, non-commercial use** of this tool is permitted.
+- **Modifications or enhancements** must be contributed to this project (e.g., through pull requests) to be approved by the project maintainer.
+- **Commercial use** and creating derivative works for redistribution outside of this project are prohibited.
+
+For full details, please refer to the [LICENSE](LICENSE) file.
 
 **Note**: This project uses various third-party models and libraries that are subject to their own licenses:
 - Llama model from Meta
@@ -152,3 +160,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Speaker Diarization model from PyAnnote
 
 Please refer to each model's license terms on Hugging Face for their usage restrictions.
+
+## Contributing
+We welcome contributions that enhance the tool! Please submit a pull request for any proposed changes or additions. All contributions must comply with the Custom Non-Commercial, Contribution-Based License outlined in the [LICENSE](LICENSE) file.
