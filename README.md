@@ -151,7 +151,7 @@ This project is licensed under a Custom Non-Commercial, Contribution-Based Licen
 - **Private, non-commercial use** of this tool is permitted.
 - **Modifications or enhancements** must be contributed to this project (e.g., through pull requests) to be approved by the project maintainer.
 - **Commercial use** and creating derivative works for redistribution outside of this project are prohibited.
-- **Contact for Commercial Use**: Companies or individuals interested in commercial use should contact Tobias Fankhauser on [LinkedIn](www.linkedin.com/in/tobias-fankhauser-b536a0b7) for case-by-case consideration.
+- **Contact for Commercial Use**: Companies or individuals interested in commercial use should contact Tobias Fankhauser on [LinkedIn](https://www.linkedin.com/in/tobias-fankhauser-b536a0b7) for case-by-case consideration.
 
 For full details, please refer to the [LICENSE](LICENSE) file.
 
