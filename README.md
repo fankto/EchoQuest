@@ -145,21 +145,26 @@ Contributions to EchoQuest are welcome! Please follow these steps:
 5. Submit a pull request
 
 ## License
-This project is licensed under a Custom Non-Commercial, Contribution-Based License. 
+This project is licensed under a Custom Non-Commercial, Contribution-Based License.
 
 ### Key Points:
 - **Private, non-commercial use** of this tool is permitted.
 - **Modifications or enhancements** must be contributed to this project (e.g., through pull requests) to be approved by the project maintainer.
 - **Commercial use** and creating derivative works for redistribution outside of this project are prohibited.
+- **Contact for Commercial Use**: Companies or individuals interested in commercial use should contact Tobias Fankhauser on [LinkedIn](www.linkedin.com/in/tobias-fankhauser-b536a0b7) for case-by-case consideration.
 
 For full details, please refer to the [LICENSE](LICENSE) file.
 
-**Note**: This project uses various third-party models and libraries that are subject to their own licenses:
-- Llama model from Meta
-- Whisper model from OpenAI
-- Speaker Diarization model from PyAnnote
+### Third-Party Licenses
+This project uses various third-party models and libraries that are subject to their own licenses:
+- **Llama model from Meta**: Refer to its [license terms on Hugging Face](https://huggingface.co/meta-llama).
+- **Whisper model from OpenAI**: Refer to its [license terms on Hugging Face](https://huggingface.co/openai-whisper).
+- **Speaker Diarization model from PyAnnote**: Refer to its [license terms on Hugging Face](https://huggingface.co/pyannote).
 
-Please refer to each model's license terms on Hugging Face for their usage restrictions.
+Please check each model's specific license terms for their usage restrictions.
 
 ## Contributing
 We welcome contributions that enhance the tool! Please submit a pull request for any proposed changes or additions. All contributions must comply with the Custom Non-Commercial, Contribution-Based License outlined in the [LICENSE](LICENSE) file.
+
+### Contributor License Agreement (CLA)
+By contributing, you agree to the terms outlined in the [CLA](CLA.md). This agreement ensures that all contributions can be used in any future version of the project, including potential commercial versions. Please read the CLA before submitting your pull request.
