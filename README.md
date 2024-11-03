@@ -129,7 +129,7 @@ If you find EchoQuest useful and want to help me keep developing innovative, ope
 
 Or, scan the QR code below to contribute:
 
-![Buy me a token QR Code](./docs/images/buymeatokenqr.png)
+![Buy me a token QR Code](images/buymeatokenqr.png)
 
 Thank you for your support! It truly makes a difference.
 
