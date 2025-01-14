@@ -10,7 +10,7 @@ class InterviewBrief(BaseModel):
     status: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class QuestionnaireBase(BaseModel):
     title: str
@@ -42,4 +42,3 @@ class Questionnaire(QuestionnaireBase):
 
     class Config:
         from_attributes = True
-        orm_mode = True
