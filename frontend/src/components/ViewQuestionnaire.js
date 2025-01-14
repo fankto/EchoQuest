@@ -1,9 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Heading, VStack, Text, Button, useToast, Textarea, Input, HStack, OrderedList, ListItem } from '@chakra-ui/react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, {useCallback, useEffect, useState} from 'react';
+import {
+    Box,
+    Button,
+    Heading,
+    HStack,
+    Input,
+    ListItem,
+    OrderedList,
+    Text,
+    Textarea,
+    useToast,
+    VStack
+} from '@chakra-ui/react';
+import {Link, useNavigate, useParams} from 'react-router-dom';
 
 function ViewQuestionnaire() {
-    const { id } = useParams();
+    const {id} = useParams();
     const [questionnaire, setQuestionnaire] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
@@ -12,11 +24,7 @@ function ViewQuestionnaire() {
     const toast = useToast();
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchQuestionnaire();
-    }, [id]);
-
-    const fetchQuestionnaire = async () => {
+    const fetchQuestionnaire = useCallback(async () => {
         try {
             const response = await fetch(`/api/questionnaires/${id}`);
             if (response.ok) {
@@ -36,7 +44,11 @@ function ViewQuestionnaire() {
                 isClosable: true,
             });
         }
-    };
+    }, [id, toast]);
+
+    useEffect(() => {
+        fetchQuestionnaire();
+    }, [fetchQuestionnaire]);
 
     const handleEdit = () => {
         setIsEditing(true);

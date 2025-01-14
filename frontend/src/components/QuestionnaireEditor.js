@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { Box, VStack, Heading, Input, Textarea, Button, useToast, FormControl, FormLabel, Switch } from '@chakra-ui/react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, {useCallback, useEffect, useState} from 'react';
+import {
+    Box,
+    Button,
+    FormControl,
+    FormLabel,
+    Heading,
+    Input,
+    Switch,
+    Textarea,
+    useToast,
+    VStack
+} from '@chakra-ui/react';
+import {useNavigate, useParams} from 'react-router-dom';
 
 function QuestionnaireEditor() {
-    const { id } = useParams();
+    const {id} = useParams();
     const navigate = useNavigate();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -12,13 +23,7 @@ function QuestionnaireEditor() {
     const [isLoading, setIsLoading] = useState(false);
     const toast = useToast();
 
-    useEffect(() => {
-        if (id) {
-            fetchQuestionnaire();
-        }
-    }, [id]);
-
-    const fetchQuestionnaire = async () => {
+    const fetchQuestionnaire = useCallback(async () => {
         try {
             const response = await fetch(`/api/questionnaires/${id}`);
             if (response.ok) {
@@ -37,7 +42,13 @@ function QuestionnaireEditor() {
                 isClosable: true,
             });
         }
-    };
+    }, [id, toast]);
+
+    useEffect(() => {
+        if (id) {
+            fetchQuestionnaire();
+        }
+    }, [id, fetchQuestionnaire]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -90,8 +101,7 @@ function QuestionnaireEditor() {
                 duration: 3000,
                 isClosable: true,
             });
-        }
-        finally {
+        } finally {
             setIsLoading(false);
         }
     };

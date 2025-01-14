@@ -1,7 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { Box, VStack, Heading, Input, Select, Button, Text, useToast, List, ListItem, IconButton } from '@chakra-ui/react';
-import { DeleteIcon } from '@chakra-ui/icons';
-import { useNavigate } from 'react-router-dom';
+import React, {useCallback, useEffect, useState} from 'react';
+import {
+    Box,
+    Button,
+    Heading,
+    IconButton,
+    Input,
+    List,
+    ListItem,
+    Select,
+    Text,
+    useToast,
+    VStack
+} from '@chakra-ui/react';
+import {DeleteIcon} from '@chakra-ui/icons';
+import {useNavigate} from 'react-router-dom';
 
 function InterviewCreation() {
     const [intervieweeName, setIntervieweeName] = useState('');
@@ -11,11 +23,7 @@ function InterviewCreation() {
     const toast = useToast();
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchQuestionnaires();
-    }, []);
-
-    const fetchQuestionnaires = async () => {
+    const fetchQuestionnaires = useCallback(async () => {
         try {
             const response = await fetch('/api/questionnaires/');
             if (response.ok) {
@@ -33,7 +41,11 @@ function InterviewCreation() {
                 isClosable: true,
             });
         }
-    };
+    }, [toast]);
+
+    useEffect(() => {
+        fetchQuestionnaires();
+    }, [fetchQuestionnaires]);
 
     const handleFileChange = (event) => {
         setAudioFiles([...audioFiles, ...Array.from(event.target.files)]);
@@ -125,7 +137,7 @@ function InterviewCreation() {
                             <ListItem key={index} display="flex" justifyContent="space-between" alignItems="center">
                                 <Text>{file.name}</Text>
                                 <IconButton
-                                    icon={<DeleteIcon />}
+                                    icon={<DeleteIcon/>}
                                     onClick={() => removeFile(index)}
                                     aria-label="Remove file"
                                 />
