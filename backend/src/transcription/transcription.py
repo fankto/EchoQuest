@@ -1,5 +1,7 @@
 # src/transcription/transcription.py
 import logging
+import os
+import threading
 import traceback
 import librosa
 import torch
@@ -12,30 +14,32 @@ from pyannote.core import Segment
 logger = logging.getLogger(__name__)
 
 class TranscriptionModule:
-    def __init__(self, asr_model: str = "openai/whisper-large-v3-turbo",
-                 device: str = "cuda" if torch.cuda.is_available() else "cpu"):
-        self.device = device
-        self.asr_model_name = asr_model
+    def __init__(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.asr_pipeline = None
         self.diarization_pipeline = None
+        self._model_lock = threading.Lock()
 
-    def load_models(self):
-        logger.info("Loading ASR and diarization models")
+    def _load_asr_model(self):
+        """Load ASR model with memory optimization"""
+        if self.asr_pipeline is None:
+            torch.cuda.empty_cache()
+            self.asr_pipeline = pipeline(
+                "automatic-speech-recognition",
+                model="openai/whisper-large-v3-turbo",
+                device=self.device,
+                torch_dtype=torch.float16,  # Use fp16 to reduce memory
+                generate_kwargs={"return_timestamps": True}
+            )
 
-        # Load ASR model (Whisper) with return_timestamps=True
-        self.asr_pipeline = pipeline(
-            "automatic-speech-recognition",
-            model=self.asr_model_name,
-            device=self.device,
-            generate_kwargs={"return_timestamps": True}
-        )
-
-        # Load diarization pipeline
-        self.diarization_pipeline = DiarizationPipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1"
-        )
-
-        logger.info("Models loaded successfully")
+    def _load_diarization_model(self):
+        """Load diarization model with memory optimization"""
+        if self.diarization_pipeline is None:
+            torch.cuda.empty_cache()
+            self.diarization_pipeline = DiarizationPipeline.from_pretrained(
+                "pyannote/speaker-diarization-3.1",
+                use_auth_token=os.getenv("HF_TOKEN")
+            )
 
 
     def unload_model(self):
@@ -62,43 +66,61 @@ class TranscriptionModule:
 
     def transcribe_and_diarize(self, audio_path: str, min_speakers: int = None, max_speakers: int = None) -> List[Dict[str, Any]]:
         try:
-            # Load audio
-            audio = self.load_audio(audio_path)
-            logger.info(f"Audio loaded: shape={audio['array'].shape}, dtype={audio['array'].dtype}")
+            with self._model_lock:
+                # Load audio
+                audio = self.load_audio(audio_path)
 
-            # Load the ASR and diarization models
-            self.load_models()
+                # Step 1: Run ASR
+                self._load_asr_model()
+                asr_result = self.asr_pipeline(audio["array"], return_timestamps=True)
 
-            # Run the ASR pipeline with return_timestamps=True
-            logger.info("Running ASR pipeline with return_timestamps=True")
-            asr_result = self.asr_pipeline(audio["array"], return_timestamps=True)
-            logger.info(f"ASR result: {asr_result}")
+                # Unload ASR model before diarization
+                self.unload_asr_model()
+                torch.cuda.empty_cache()
 
-            # Check for chunks
-            if 'chunks' not in asr_result or not asr_result['chunks']:
-                logger.error("ASR pipeline returned empty chunks.")
-                raise ValueError("ASR pipeline failed to transcribe audio with timestamps.")
+                # Step 2: Run diarization
+                self._load_diarization_model()
+                diarization_result = self.diarization_pipeline(
+                    audio_path,
+                    min_speakers=min_speakers,
+                    max_speakers=max_speakers
+                )
 
-            # Run the diarization pipeline
-            logger.info("Running diarization pipeline")
-            diarization_result = self.diarization_pipeline(audio_path, min_speakers=min_speakers, max_speakers=max_speakers)
-            logger.info(f"Diarization result: {diarization_result}")
+                # Process results
+                assigned_segments = self.assign_speakers(asr_result, diarization_result)
+                merged_segments = self.merge_segments(assigned_segments)
 
-            # Assign speakers to ASR chunks
-            logger.info("Assigning speakers to ASR chunks")
-            assigned_segments = self.assign_speakers(asr_result, diarization_result)
+                # Unload models
+                self.unload_models()
 
-            # Merge segments if necessary
-            merged_segments = self.merge_segments(assigned_segments)
+                return merged_segments
 
-            return merged_segments
         except Exception as e:
             logger.error(f"Error in transcribe_and_diarize: {str(e)}")
             logger.error(traceback.format_exc())
+            self.unload_models()  # Ensure models are unloaded even on error
             raise
-        finally:
-            # Unload the models and clean up memory
-            self.unload_model()
+
+    def unload_asr_model(self):
+        """Unload ASR model and clear memory"""
+        if self.asr_pipeline:
+            del self.asr_pipeline
+            self.asr_pipeline = None
+        torch.cuda.empty_cache()
+
+    def unload_diarization_model(self):
+        """Unload diarization model and clear memory"""
+        if self.diarization_pipeline:
+            del self.diarization_pipeline
+            self.diarization_pipeline = None
+        torch.cuda.empty_cache()
+
+    def unload_models(self):
+        """Unload all models and clear memory"""
+        self.unload_asr_model()
+        self.unload_diarization_model()
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def load_audio(self, audio_path: str) -> Dict[str, Any]:
         logger.info(f"Loading audio from: {audio_path}")

@@ -1,16 +1,17 @@
 # src/question_answerer/question_answerer.py
-import os
+import logging
 import threading
 import time
 from functools import lru_cache
 from typing import List, Dict
-
 
 import torch
 from pydantic_settings import BaseSettings
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, pipeline
 
 from .prompt_templates import question_answering_messages
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -35,43 +36,45 @@ settings = Settings()
 class QuestionAnswerer:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = AutoTokenizer.from_pretrained(settings.llm_model_name)
+        self.tokenizer = None
         self.model = None
         self.pipeline = None
         self.last_request_time = 0
         self._lock = threading.Lock()
+        self._is_loaded = False
 
     def _load_model(self):
+        """Load model with memory optimization"""
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA is not available. This model requires a GPU.")
 
         try:
             torch.cuda.empty_cache()
 
+            # Load tokenizer first
+            if not self.tokenizer:
+                self.tokenizer = AutoTokenizer.from_pretrained(settings.llm_model_name)
+
             # Check available GPU memory
             total_memory = torch.cuda.get_device_properties(0).total_memory
             reserved_memory = torch.cuda.memory_reserved(0)
             available_memory = total_memory - reserved_memory
 
-            # Estimate model size (this is a rough estimate, adjust as needed)
-            model_size = 8 * 2 * (1024 ** 3)  # 8 GB for 8B parameter model
+            # Load quantized model by default to save memory
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
+            )
 
-            if available_memory > model_size:
-                # Try to load the full-precision model
-                try:
-                    self.model = AutoModelForCausalLM.from_pretrained(
-                        settings.llm_model_name,
-                        device_map="auto",
-                        torch_dtype=getattr(torch, settings.llm_model_dtype),
-                        low_cpu_mem_usage=True,
-                    )
-                    print("Loaded full-precision model successfully.")
-                except Exception as e:
-                    print(f"Failed to load full-precision model: {str(e)}. Falling back to quantized model.")
-                    self._load_quantized_model()
-            else:
-                print("Insufficient GPU memory for full-precision model. Loading quantized model.")
-                self._load_quantized_model()
+            self.model = AutoModelForCausalLM.from_pretrained(
+                settings.llm_model_name,
+                quantization_config=quantization_config,
+                device_map="auto",
+                torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True,
+            )
 
             self.pipeline = pipeline(
                 "text-generation",
@@ -79,22 +82,12 @@ class QuestionAnswerer:
                 tokenizer=self.tokenizer,
                 device_map="auto",
             )
-        except Exception as e:
-            raise RuntimeError(f"Failed to load model: {str(e)}")
 
-    def _load_quantized_model(self):
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=settings.load_in_4bit,
-            bnb_4bit_compute_dtype=getattr(torch, settings.compute_dtype),
-            llm_int8_enable_fp32_cpu_offload=True
-        )
-        self.model = AutoModelForCausalLM.from_pretrained(
-            settings.llm_model_name,
-            quantization_config=quantization_config,
-            device_map="auto",
-            torch_dtype=getattr(torch, settings.llm_model_dtype),
-            low_cpu_mem_usage=True,
-        )
+            self._is_loaded = True
+
+        except Exception as e:
+            self.unload_model()
+            raise RuntimeError(f"Failed to load model: {str(e)}")
 
     @lru_cache(maxsize=100)
     def _cached_answer_question(self, question: str, context: str) -> str:
@@ -152,14 +145,25 @@ class QuestionAnswerer:
             return self._cached_answer_question(question, context)
 
     def unload_model(self):
-        with self._lock:
+        """Unload model and clear memory"""
+        if self._is_loaded:
             if self.model:
                 del self.model
-                self.model = None
             if self.pipeline:
                 del self.pipeline
-                self.pipeline = None
+            if self.tokenizer:
+                del self.tokenizer
+
+            self.model = None
+            self.pipeline = None
+            self.tokenizer = None
+            self._is_loaded = False
+
+            # Clear CUDA cache
+            gc.collect()
             torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.ipc_collect()
 
 
 question_answerer = QuestionAnswerer()

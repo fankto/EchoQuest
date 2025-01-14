@@ -1,6 +1,7 @@
 # src/audio_processor/audio_processor.py
 import logging
 import math
+from typing import List
 
 import torch
 import torchaudio
@@ -14,6 +15,8 @@ class AudioProcessor:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.sample_rate = settings.SAMPLE_RATE
+        self.chunk_size = 10 * self.sample_rate  # Process 10 seconds at a time
+        self.overlap = self.sample_rate # 1 second overlap between chunks
         self.n_fft = settings.N_FFT
         self.hop_length = settings.HOP_LENGTH
         self.noise_reduction_factor = settings.NOISE_REDUCTION_FACTOR
@@ -35,63 +38,100 @@ class AudioProcessor:
 
     def process(self, waveform: torch.Tensor, original_sample_rate: int) -> torch.Tensor:
         try:
-            waveform = waveform.to(self.device)
-            logger.debug(f"Starting audio processing. Input shape: {waveform.shape}")
-
+            # Resample if needed
             if original_sample_rate != self.sample_rate:
                 waveform = torchaudio.functional.resample(waveform, original_sample_rate, self.sample_rate)
 
+            # Convert to mono if stereo
             if waveform.shape[0] > 1:
                 waveform = torch.mean(waveform, dim=0, keepdim=True)
 
-            waveform = self.spectral_subtraction(waveform)
-            logger.debug(f"Waveform shape after spectral subtraction: {waveform.shape}")
+            # Process in chunks
+            num_samples = waveform.shape[1]
+            processed_chunks = []
 
-            waveform = self.remove_silence(waveform)
-            logger.debug(f"Waveform shape after silence removal: {waveform.shape}")
+            for start in range(0, num_samples, self.chunk_size - self.overlap):
+                # Clear GPU cache before processing each chunk
+                torch.cuda.empty_cache()
 
-            waveform = self.apply_compression(waveform)
-            logger.debug(f"Waveform shape after compression: {waveform.shape}")
+                end = min(start + self.chunk_size, num_samples)
+                chunk = waveform[:, start:end].to(self.device)
 
-            waveform = self.apply_equalization(waveform)
-            logger.debug(f"Waveform shape after equalization: {waveform.shape}")
+                # Process chunk
+                chunk = self.spectral_subtraction(chunk)
+                chunk = self.remove_silence(chunk)
+                chunk = self.apply_compression(chunk)
+                chunk = self.apply_equalization(chunk)
+                chunk = self.apply_deessing(chunk)
+                chunk = self.apply_harmonic_exciter(chunk)
 
-            waveform = self.apply_deessing(waveform)
-            logger.debug(f"Waveform shape after de-essing: {waveform.shape}")
+                # Move processed chunk back to CPU
+                processed_chunks.append(chunk.cpu())
 
-            # waveform = self.apply_multiband_compression(waveform)
-            logger.debug(f"Waveform shape after multiband compression: {waveform.shape}")
+                # Clear the chunk from GPU memory
+                del chunk
+                torch.cuda.empty_cache()
 
-            waveform = self.apply_harmonic_exciter(waveform)
-            logger.debug(f"Waveform shape after harmonic exciter: {waveform.shape}")
+            # Combine chunks with crossfade
+            final_waveform = self._combine_chunks(processed_chunks, self.overlap)
 
-            # Normalization
-            max_val = torch.max(torch.abs(waveform))
+            # Normalize
+            max_val = torch.max(torch.abs(final_waveform))
             if max_val > 0:
-                waveform = waveform / max_val * 0.99
+                final_waveform = final_waveform / max_val * 0.99
 
-            # Final shape check
-            if waveform.dim() != 2:
-                logger.warning(f"Unexpected waveform shape after processing: {waveform.shape}. Reshaping to 2D.")
-                waveform = waveform.view(1, -1)
+            return final_waveform
 
-            return waveform.cpu()
         except Exception as e:
             logger.error(f"Error in audio processing: {str(e)}")
             return waveform.cpu()
 
+    def _combine_chunks(self, chunks: List[torch.Tensor], overlap: int) -> torch.Tensor:
+        """Combine chunks with crossfade"""
+        if len(chunks) == 1:
+            return chunks[0]
+
+        final_waveform = []
+        fade = torch.linspace(0, 1, overlap)
+
+        # Add first chunk
+        final_waveform.append(chunks[0][:, :-overlap])
+
+        # Add middle chunks with crossfade
+        for i in range(len(chunks) - 1):
+            # Crossfade overlapping region
+            overlap_prev = chunks[i][:, -overlap:] * (1 - fade)
+            overlap_next = chunks[i + 1][:, :overlap] * fade
+            overlap_region = overlap_prev + overlap_next
+
+            # Add crossfaded region and rest of chunk
+            final_waveform.append(overlap_region)
+            if i < len(chunks) - 2:
+                final_waveform.append(chunks[i + 1][:, overlap:-overlap])
+
+        # Add last chunk
+        final_waveform.append(chunks[-1][:, overlap:])
+
+        return torch.cat(final_waveform, dim=1)
+
+    # Other methods remain the same but add to_device() and to_cpu() calls
     def spectral_subtraction(self, waveform: torch.Tensor) -> torch.Tensor:
-        logger.debug(f"Starting spectral subtraction.")
         stft = torch.stft(waveform, n_fft=self.n_fft, hop_length=self.hop_length,
                           window=self.window, return_complex=True)
         mag_spec = torch.abs(stft)
 
         noise_estimate = torch.mean(mag_spec[:, :, :10], dim=2, keepdim=True)
-        cleaned_spec = torch.max(mag_spec - self.noise_reduction_factor * noise_estimate, torch.zeros_like(mag_spec))
+        cleaned_spec = torch.max(mag_spec - self.noise_reduction_factor * noise_estimate,
+                                 torch.zeros_like(mag_spec))
 
         cleaned_stft = cleaned_spec * (stft / (mag_spec + 1e-8))
-        cleaned_waveform = torch.istft(cleaned_stft, n_fft=self.n_fft, hop_length=self.hop_length,
+        cleaned_waveform = torch.istft(cleaned_stft, n_fft=self.n_fft,
+                                       hop_length=self.hop_length,
                                        window=self.window, length=waveform.shape[1])
+
+        # Clear unused tensors
+        del stft, mag_spec, noise_estimate, cleaned_spec, cleaned_stft
+        torch.cuda.empty_cache()
 
         return cleaned_waveform
 
