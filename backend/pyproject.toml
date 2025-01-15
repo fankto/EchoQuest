@@ -52,6 +52,7 @@ torchvision = {version = "^0.20.0+cu121", source = "pytorch"}
 torchaudio = {version = "^2.5.0+cu121", source = "pytorch"}
 huggingface-hub = "^0.26.0"
 speechbox = {git = "https://github.com/huggingface/speechbox.git"}
+numba = "^0.60.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.0.0"
