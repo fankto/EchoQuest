@@ -1,4 +1,5 @@
 # src/question_answerer/question_answerer.py
+import gc
 import logging
 import threading
 import time
@@ -19,7 +20,7 @@ class Settings(BaseSettings):
     llm_model_dtype: str = "bfloat16"
     load_in_4bit: bool = True
     compute_dtype: str = "bfloat16"
-    max_new_tokens: int = 256
+    max_new_tokens: int = 8192
     do_sample: bool = True
     temperature: float = 0.5
     num_return_sequences: int = 1

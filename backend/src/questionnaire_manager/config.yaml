@@ -4,7 +4,7 @@ quantization:
   load_in_4bit: true
   compute_dtype: "bfloat16"
 generation:
-  max_new_tokens: 256
+  max_new_tokens: 8192
   do_sample: true
   temperature: 0.5
   num_return_sequences: 1
