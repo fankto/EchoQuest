@@ -57,23 +57,27 @@ class AudioTranscriptionProcessor:
 
             # Transcribe the processed audio
             logger.info(f"Transcribing processed audio: processed_{process_id}.wav")
-            transcription_result = self.transcription_module.transcribe(processed_file_path)
+            try:
+                transcription_result = self.transcription_module.transcribe(processed_file_path)
 
-            if not transcription_result:
-                raise TranscriptionError("Failed to transcribe audio")
+                if not transcription_result:
+                    raise TranscriptionError("Failed to transcribe audio")
 
-            return AudioTranscriptionResult(
-                process_id=process_id,
-                file_info=file_info,
-                transcription=transcription_result
-            )
+                return AudioTranscriptionResult(
+                    process_id=process_id,
+                    file_info=file_info,
+                    transcription=transcription_result
+                )
+            finally:
+                # Ensure models are unloaded after transcription
+                self.transcription_module.unload_models()
 
         except Exception as e:
             logger.error(f"Error in process_and_transcribe: {str(e)}")
             raise
 
         finally:
-            logger.info(f"Cleaning up temporary files")
+            logger.info("Cleaning up temporary files")
             if temp_file_path and os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
             if processed_file_path and os.path.exists(processed_file_path):
