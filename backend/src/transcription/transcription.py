@@ -1,17 +1,19 @@
 # src/transcription/transcription.py
+import gc
 import logging
 import os
 import threading
 import traceback
+from typing import Dict, Any, List
+
 import librosa
 import torch
-import gc
-from typing import Dict, Any, List
-from transformers import pipeline
 from pyannote.audio import Pipeline as DiarizationPipeline
 from pyannote.core import Segment
+from transformers import pipeline
 
 logger = logging.getLogger(__name__)
+
 
 class TranscriptionModule:
     def __init__(self):
@@ -48,7 +50,8 @@ class TranscriptionModule:
                 use_auth_token=os.getenv("HF_TOKEN")
             ).to(self.device)
 
-    def transcribe_and_diarize(self, audio_path: str, min_speakers: int = None, max_speakers: int = None) -> List[Dict[str, Any]]:
+    def transcribe_and_diarize(self, audio_path: str, min_speakers: int = None, max_speakers: int = None) -> List[
+        Dict[str, Any]]:
         try:
             with self._model_lock:
                 # Load models if not already loaded
@@ -89,9 +92,14 @@ class TranscriptionModule:
             logger.error(traceback.format_exc())
             raise
 
+        finally:
+            # Always unload models after processing
+            logger.info("Unloading models after transcription")
+            self.unload_models()
+
     def unload_models(self):
         """Unload all models and clear memory"""
-        logger.info(f"VRAM usage before unloading: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+        logger.info(f"VRAM usage before unloading: {torch.cuda.memory_allocated() / 1024 ** 2:.2f} MB")
 
         if self.asr_pipeline:
             del self.asr_pipeline
@@ -107,7 +115,7 @@ class TranscriptionModule:
         if torch.cuda.is_available():
             torch.cuda.ipc_collect()
 
-        logger.info(f"VRAM usage after unloading: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+        logger.info(f"VRAM usage after unloading: {torch.cuda.memory_allocated() / 1024 ** 2:.2f} MB")
 
     def load_audio(self, audio_path: str) -> Dict[str, Any]:
         logger.info(f"Loading audio from: {audio_path}")
