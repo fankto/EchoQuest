@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .database import engine, Base
 from .interview_manager.audio_endpoints import router as interview_manager_router
-from .questionnaire_manager.main import router as questionnaire_manager_router
+from .questionnaire_manager.api import router as questionnaire_manager_router
 
 import logging
 

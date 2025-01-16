@@ -1,4 +1,5 @@
-import React, {useCallback, useEffect, useState} from 'react';
+// frontend/src/components/QuestionnaireEditor.js
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Box,
     Button,
@@ -9,27 +10,32 @@ import {
     Switch,
     Textarea,
     useToast,
-    VStack
+    VStack,
 } from '@chakra-ui/react';
-import {useNavigate, useParams} from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import EditableQuestions from './EditableQuestions';
 
 function QuestionnaireEditor() {
-    const {id} = useParams();
+    const { id } = useParams();
     const navigate = useNavigate();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
+    const [extractedQuestions, setExtractedQuestions] = useState([]);
     const [file, setFile] = useState(null);
     const [isManualInput, setIsManualInput] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const toast = useToast();
 
     const fetchQuestionnaire = useCallback(async () => {
+        if (!id) return;
+
         try {
             const response = await fetch(`/api/questionnaires/${id}`);
             if (response.ok) {
                 const data = await response.json();
                 setTitle(data.title);
                 setContent(data.content);
+                setExtractedQuestions(data.questions || []);
             } else {
                 throw new Error('Failed to fetch questionnaire');
             }
@@ -45,10 +51,8 @@ function QuestionnaireEditor() {
     }, [id, toast]);
 
     useEffect(() => {
-        if (id) {
-            fetchQuestionnaire();
-        }
-    }, [id, fetchQuestionnaire]);
+        fetchQuestionnaire();
+    }, [fetchQuestionnaire]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -70,29 +74,30 @@ function QuestionnaireEditor() {
         } else if (file) {
             formData.append('file', file);
         }
-
-        const method = id ? 'PUT' : 'POST';
-        const url = id ? `/api/questionnaires/${id}` : '/api/questionnaires/';
+        formData.append('questions', JSON.stringify(extractedQuestions));
 
         setIsLoading(true);
-
         try {
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/questionnaires/${id}` : '/api/questionnaires/';
+
             const response = await fetch(url, {
                 method: method,
                 body: formData,
             });
-            if (response.ok) {
-                toast({
-                    title: "Success",
-                    description: `Questionnaire ${id ? 'updated' : 'created'} successfully`,
-                    status: "success",
-                    duration: 3000,
-                    isClosable: true,
-                });
-                navigate('/');
-            } else {
+
+            if (!response.ok) {
                 throw new Error(`Failed to ${id ? 'update' : 'create'} questionnaire`);
             }
+
+            toast({
+                title: "Success",
+                description: `Questionnaire ${id ? 'updated' : 'created'} successfully`,
+                status: "success",
+                duration: 3000,
+                isClosable: true,
+            });
+            navigate('/');
         } catch (error) {
             toast({
                 title: "Error",
@@ -106,8 +111,46 @@ function QuestionnaireEditor() {
         }
     };
 
-    const handleFileChange = (event) => {
-        setFile(event.target.files[0]);
+    const handleFileChange = async (event) => {
+        const selectedFile = event.target.files[0];
+        setFile(selectedFile);
+
+        if (selectedFile) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const text = e.target.result;
+                setContent(text);
+
+                // Extract questions from the file content
+                try {
+                    const formData = new FormData();
+                    formData.append('content', text);
+
+                    const response = await fetch('/api/questionnaires/', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        setExtractedQuestions(data.questions || []);
+                    }
+                } catch (error) {
+                    toast({
+                        title: "Error",
+                        description: "Failed to extract questions from file",
+                        status: "error",
+                        duration: 3000,
+                        isClosable: true,
+                    });
+                }
+            };
+            reader.readAsText(selectedFile);
+        }
+    };
+
+    const handleQuestionsChange = (newQuestions) => {
+        setExtractedQuestions(newQuestions);
     };
 
     return (
@@ -120,6 +163,7 @@ function QuestionnaireEditor() {
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                     />
+
                     <FormControl display="flex" alignItems="center">
                         <FormLabel htmlFor="manual-input" mb="0">
                             Manual Input
@@ -130,6 +174,7 @@ function QuestionnaireEditor() {
                             onChange={(e) => setIsManualInput(e.target.checked)}
                         />
                     </FormControl>
+
                     {isManualInput ? (
                         <Textarea
                             placeholder="Questionnaire Content"
@@ -144,12 +189,22 @@ function QuestionnaireEditor() {
                             onChange={handleFileChange}
                         />
                     )}
+
+                    <Box mt={4}>
+                        <Heading size="md" mb={4}>Questions</Heading>
+                        <EditableQuestions
+                            questions={extractedQuestions}
+                            onChange={handleQuestionsChange}
+                        />
+                    </Box>
+
                     <Button
                         type="submit"
                         colorScheme="blue"
                         isLoading={isLoading}
                         loadingText={id ? 'Updating...' : 'Creating...'}
                         width="200px"
+                        mt={4}
                     >
                         {id ? 'Update Questionnaire' : 'Create Questionnaire'}
                     </Button>

@@ -48,10 +48,11 @@ torchaudio = {version = "^2.5.0+cu121", source = "pytorch"}
 huggingface-hub = "^0.26.0"
 speechbox = {git = "https://github.com/huggingface/speechbox.git"}
 numba = "^0.60.0"
+httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
-httpx = "^0.26.0"
+httpx = "^0.28.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

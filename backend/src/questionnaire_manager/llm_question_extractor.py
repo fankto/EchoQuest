@@ -4,10 +4,10 @@ import json
 import logging
 import re
 from threading import Lock
-from typing import Dict, Union, List
+from typing import Dict, List
 
 from ..model_manager.manager import model_manager
-from .prompt_templates import extraction_messages, verification_messages
+from .prompt_templates import extraction_messages
 
 logger = logging.getLogger(__name__)
 
@@ -25,112 +25,89 @@ class LLMQuestionExtractor:
 
     def _clean_json(self, json_string: str) -> dict:
         """Clean and parse JSON from model response"""
-        def fix_json(s):
-            # Fix unquoted keys
-            s = re.sub(r'(\w+)(?=\s*:)', r'"\1"', s)
-            # Remove trailing commas
-            s = re.sub(r',\s*}', '}', s)
-            s = re.sub(r',\s*]', ']', s)
-            return s
-
-        # Find all potential JSON objects
-        json_objects = re.findall(r'\{.*?\}', json_string, re.DOTALL)
-
-        for obj in json_objects:
-            try:
-                return json.loads(obj)
-            except json.JSONDecodeError:
-                fixed_obj = fix_json(obj)
-                try:
-                    return json.loads(fixed_obj)
-                except json.JSONDecodeError:
-                    continue
-
-        logger.warning("No valid JSON found in the response")
-        return {"items": []}
-
-    def _get_model_response(self, messages: List[Dict[str, str]]) -> str:
-        """Get response from the model using the centralized pipeline"""
         try:
-            pipeline = model_manager.get_pipeline('llm')
-            outputs = pipeline(
-                messages
-            )  # Pipeline parameters are now set during pipeline creation in ModelManager
+            # First try direct JSON parsing
+            data = json.loads(json_string)
 
-            response = outputs[0]['generated_text'][-1]['content']
+            # Extract just the items from extracted_items
+            if isinstance(data, dict) and "extracted_items" in data:
+                items = [item["item"] for item in data["extracted_items"] if isinstance(item, dict) and "item" in item]
+                return {"items": items}
+
+            return {"items": []}
+
+        except json.JSONDecodeError:
+            # If direct parsing fails, try to extract JSON using regex
+            try:
+                # Find JSON object pattern
+                json_pattern = r'\{[\s\S]*\}'
+                match = re.search(json_pattern, json_string)
+                if match:
+                    data = json.loads(match.group(0))
+                    if isinstance(data, dict) and "extracted_items" in data:
+                        items = [item["item"] for item in data["extracted_items"] if isinstance(item, dict) and "item" in item]
+                        return {"items": items}
+            except:
+                pass
+
+            logger.error("Failed to parse JSON response")
+            return {"items": []}
+
+    async def _get_model_response(self, messages: List[Dict[str, str]]) -> str:
+        """Get response from Ollama model"""
+        try:
+            pipeline = model_manager.get_pipeline('llm_extract')
+            prompt = self._format_messages(messages)
+            system = messages[0]['content'] if messages[0]['role'] == 'system' else None
+
+            response = await pipeline.generate(
+                prompt=prompt,
+                model=pipeline.settings.extract_model,
+                system=system
+            )
+
             logger.info(f"Model response: {response}")
             return response.strip()
         except Exception as e:
             logger.error(f"Error in getting model response: {str(e)}")
             raise
 
-    def _clean_extracted_text(self, text: str) -> str:
-        """Clean extracted text by removing extra whitespace"""
-        return re.sub(r'\s+', ' ', text).strip()
+    def _format_messages(self, messages: List[Dict[str, str]]) -> str:
+        """Format messages for Ollama"""
+        formatted = []
+        for msg in messages:
+            if msg['role'] != 'system':  # System message is handled separately
+                formatted.append(f"{msg['role'].capitalize()}: {msg['content']}")
+        return "\n\n".join(formatted)
 
-    def _clean_extracted_json(self, extracted_json: Dict[str, List[str]]) -> Dict[str, List[str]]:
-        """Clean all extracted items in the JSON"""
-        cleaned_json = {}
-        for key, value_list in extracted_json.items():
-            cleaned_json[key] = [self._clean_extracted_text(item) for item in value_list]
-        return cleaned_json
-
-    def extract_questions(self, content: str) -> Dict[str, List[str]]:
+    async def extract_questions(self, content: str) -> Dict[str, List[str]]:
         """Extract questions from content using the LLM"""
-        logger.info(f"Extracting questions from content: {content[:100]}...")
-        messages = copy.deepcopy(extraction_messages)
-        messages[1]["content"] = messages[1]["content"].format(content=content)
+        try:
+            logger.info(f"Extracting questions from content: {content[:100]}...")
+            messages = copy.deepcopy(extraction_messages)
+            messages[1]["content"] = messages[1]["content"].format(content=content)
 
-        response = self._get_model_response(messages)
-        logger.info(f"Raw LLM extraction response:\n{response}")
+            response = await self._get_model_response(messages)
+            extracted_json = self._clean_json(response)
 
-        extracted_json = self._clean_json(response)
-        logger.info(f"Extracted JSON after cleaning:\n{extracted_json}")
-
-        cleaned_json = self._clean_extracted_json(extracted_json)
-        logger.info(f"Final cleaned extracted JSON:\n{cleaned_json}")
-
-        return cleaned_json
-
-    def verify_extraction(
-            self,
-            content: str,
-            extracted_json: Dict[str, List[str]]
-    ) -> Dict[str, Union[str, Dict[str, List[str]]]]:
-        """Verify and potentially correct extracted questions"""
-        logger.info(f"Verifying extraction. Content: {content[:100]}...")
-        messages = copy.deepcopy(verification_messages)
-
-        if "items" in extracted_json:
-            extracted_items = json.dumps(extracted_json["items"])
-            messages[1]["content"] = messages[1]["content"].format(
-                content=content,
-                extracted_items=extracted_items
-            )
-        else:
-            logger.error(f"'items' key missing in extracted JSON: {extracted_json}")
-            raise KeyError("'items' key missing in extracted JSON")
-
-        response = self._get_model_response(messages)
-        logger.info(f"LLM verification response:\n{response}")
-
-        if "yes" in response.strip().lower():
-            logger.info("Verification passed. Returning original JSON.")
-            return {"result": "yes", "json": extracted_json}
-
-        corrected_json = self._clean_json(response)
-        if corrected_json["items"]:
-            cleaned_corrected_json = self._clean_extracted_json(corrected_json)
-            logger.info(f"Verification failed. Corrected and cleaned JSON:\n{cleaned_corrected_json}")
-            return {"result": "no", "json": cleaned_corrected_json}
-        else:
-            logger.error("No valid JSON found in the verification response")
-            return {"result": "no", "json": extracted_json}
+            logger.info(f"Extracted questions: {extracted_json}")
+            return extracted_json
+        except Exception as e:
+            logger.error(f"Error in extracting questions: {str(e)}")
+            raise
+        finally:
+            # Ensure cleanup happens even if there's an error
+            try:
+                model_manager.unload_model('llm_extract')
+            except Exception as e:
+                logger.error(f"Error unloading model: {str(e)}")
 
 
-def extract_and_verify_questions(content: str) -> Dict[str, list]:
-    """Convenience function to perform extraction and verification"""
-    extractor = LLMQuestionExtractor()
-    extracted_json = extractor.extract_questions(content)
-    verification_result = extractor.verify_extraction(content, extracted_json)
-    return verification_result["json"]
+async def extract_and_verify_questions(content: str) -> Dict[str, list]:
+    """Main function to extract questions"""
+    try:
+        extractor = LLMQuestionExtractor()
+        return await extractor.extract_questions(content)
+    finally:
+        # Ensure model is unloaded after extraction
+        model_manager.unload_model('llm_extract')
