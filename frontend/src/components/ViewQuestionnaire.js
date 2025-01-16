@@ -2,25 +2,31 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {
     Box,
     Button,
+    FormControl,
+    FormLabel,
+    Grid,
+    GridItem,
     Heading,
     HStack,
+    IconButton,
     Input,
-    ListItem,
-    OrderedList,
     Text,
     Textarea,
     useToast,
-    VStack
+    VStack,
 } from '@chakra-ui/react';
+import {AddIcon, DeleteIcon} from '@chakra-ui/icons';
 import {Link, useNavigate, useParams} from 'react-router-dom';
 
 function ViewQuestionnaire() {
     const {id} = useParams();
     const [questionnaire, setQuestionnaire] = useState(null);
-    const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
     const [editedContent, setEditedContent] = useState('');
+    const [questions, setQuestions] = useState([]);
+    const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isExtracting, setIsExtracting] = useState(false);
     const toast = useToast();
     const navigate = useNavigate();
 
@@ -32,6 +38,7 @@ function ViewQuestionnaire() {
                 setQuestionnaire(data);
                 setEditedTitle(data.title);
                 setEditedContent(data.content);
+                setQuestions(data.questions || []);
             } else {
                 throw new Error('Failed to fetch questionnaire');
             }
@@ -50,17 +57,84 @@ function ViewQuestionnaire() {
         fetchQuestionnaire();
     }, [fetchQuestionnaire]);
 
-    const handleEdit = () => {
-        setIsEditing(true);
+    const handleQuestionChange = (index, newValue) => {
+        const updatedQuestions = [...questions];
+        updatedQuestions[index] = newValue;
+        setQuestions(updatedQuestions);
     };
 
-    const handleCancel = () => {
-        setIsEditing(false);
-        setEditedTitle(questionnaire.title);
-        setEditedContent(questionnaire.content);
+    const addNewQuestion = () => {
+        setQuestions([...questions, '']);
+    };
+
+    const removeQuestion = (index) => {
+        const updatedQuestions = questions.filter((_, i) => i !== index);
+        setQuestions(updatedQuestions);
+    };
+
+    const extractQuestions = async () => {
+        if (!editedContent) {
+            toast({
+                title: "Error",
+                description: "Please provide content to extract questions from",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+            return;
+        }
+
+        setIsExtracting(true);
+        try {
+            const formData = new FormData();
+            formData.append('title', editedTitle);
+            formData.append('content', editedContent);
+
+            const response = await fetch('/api/questionnaires/', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to extract questions');
+            }
+
+            const data = await response.json();
+            const extractedQuestions = data.questions?.items || data.questions || [];
+            setQuestions(extractedQuestions);
+
+            toast({
+                title: "Success",
+                description: "Questions extracted successfully",
+                status: "success",
+                duration: 3000,
+                isClosable: true,
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: error.message,
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+        } finally {
+            setIsExtracting(false);
+        }
     };
 
     const handleSave = async () => {
+        if (!editedTitle) {
+            toast({
+                title: "Error",
+                description: "Please provide a title",
+                status: "error",
+                duration: 3000,
+                isClosable: true,
+            });
+            return;
+        }
+
         setIsSaving(true);
         try {
             const formData = new FormData();
@@ -72,20 +146,20 @@ function ViewQuestionnaire() {
                 body: formData,
             });
 
-            if (response.ok) {
-                const updatedQuestionnaire = await response.json();
-                setQuestionnaire(updatedQuestionnaire);
-                setIsEditing(false);
-                toast({
-                    title: "Success",
-                    description: "Questionnaire updated successfully",
-                    status: "success",
-                    duration: 3000,
-                    isClosable: true,
-                });
-            } else {
+            if (!response.ok) {
                 throw new Error('Failed to update questionnaire');
             }
+
+            setIsEditing(false);
+            fetchQuestionnaire();
+
+            toast({
+                title: "Success",
+                description: "Questionnaire updated successfully",
+                status: "success",
+                duration: 3000,
+                isClosable: true,
+            });
         } catch (error) {
             toast({
                 title: "Error",
@@ -130,74 +204,138 @@ function ViewQuestionnaire() {
     };
 
     if (!questionnaire) {
-        return <Box>Loading...</Box>;
+        return <Box p={5}>Loading...</Box>;
     }
 
     return (
-        <Box p={5}>
-            {isEditing ? (
-                <VStack align="stretch" spacing={4}>
-                    <Input
-                        value={editedTitle}
-                        onChange={(e) => setEditedTitle(e.target.value)}
-                        placeholder="Questionnaire Title"
-                    />
-                    <Textarea
-                        value={editedContent}
-                        onChange={(e) => setEditedContent(e.target.value)}
-                        placeholder="Questionnaire Content"
-                        minHeight="200px"
-                    />
-                    <Button
-                        colorScheme="blue"
-                        onClick={handleSave}
-                        isLoading={isSaving}
-                        loadingText="Saving..."
-                    >
-                        Save
-                    </Button>
-                    <Button onClick={handleCancel} isDisabled={isSaving}>Cancel</Button>
-                </VStack>
-            ) : (
-                <>
-                    <Heading mb={5}>{questionnaire.title}</Heading>
-                    <VStack align="stretch" spacing={4} mb={4}>
-                        <Heading size="md">Extracted Questions:</Heading>
-                        {questionnaire.questions && questionnaire.questions.length > 0 ? (
-                            <OrderedList spacing={2}>
-                                {questionnaire.questions.map((question, index) => (
-                                    <ListItem key={index} ml={4}>
-                                        {question}
-                                    </ListItem>
-                                ))}
-                            </OrderedList>
-                        ) : (
-                            <Text>No questions extracted from this questionnaire.</Text>
-                        )}
-                    </VStack>
+        <Box p={5} maxW="1200px" mx="auto">
+            <VStack spacing={6} align="stretch">
+                {isEditing ? (
+                    <Grid templateColumns="repeat(2, 1fr)" gap={6}>
+                        <GridItem>
+                            <VStack align="stretch" spacing={4}>
+                                <FormControl isRequired>
+                                    <FormLabel>Title</FormLabel>
+                                    <Input
+                                        value={editedTitle}
+                                        onChange={(e) => setEditedTitle(e.target.value)}
+                                        placeholder="Enter title"
+                                    />
+                                </FormControl>
+
+                                <FormControl>
+                                    <FormLabel>Document Content</FormLabel>
+                                    <Textarea
+                                        value={editedContent}
+                                        onChange={(e) => setEditedContent(e.target.value)}
+                                        placeholder="Enter or paste your document content here"
+                                        minHeight="400px"
+                                    />
+                                </FormControl>
+
+                                <Button
+                                    onClick={extractQuestions}
+                                    isLoading={isExtracting}
+                                    loadingText="Extracting..."
+                                    colorScheme="blue"
+                                >
+                                    Extract Questions
+                                </Button>
+                            </VStack>
+                        </GridItem>
+
+                        <GridItem>
+                            <VStack spacing={4} align="stretch">
+                                <HStack justify="space-between">
+                                    <Heading size="md">Questions</Heading>
+                                    <Button
+                                        leftIcon={<AddIcon/>}
+                                        onClick={addNewQuestion}
+                                        colorScheme="blue"
+                                        size="sm"
+                                    >
+                                        Add Question
+                                    </Button>
+                                </HStack>
+
+                                <VStack spacing={2} align="stretch" maxH="500px" overflowY="auto">
+                                    {questions.map((question, index) => (
+                                        <HStack key={index} spacing={2}>
+                                            <Input
+                                                value={question}
+                                                onChange={(e) => handleQuestionChange(index, e.target.value)}
+                                                placeholder="Enter question"
+                                            />
+                                            <IconButton
+                                                icon={<DeleteIcon/>}
+                                                onClick={() => removeQuestion(index)}
+                                                colorScheme="red"
+                                                aria-label="Remove question"
+                                            />
+                                        </HStack>
+                                    ))}
+                                </VStack>
+                            </VStack>
+                        </GridItem>
+                    </Grid>
+                ) : (
+                    <>
+                        <Heading>{questionnaire.title}</Heading>
+                        <Text whiteSpace="pre-wrap">{questionnaire.content}</Text>
+                        <VStack align="stretch" spacing={4}>
+                            <Heading size="md">Questions:</Heading>
+                            {questionnaire.questions && questionnaire.questions.length > 0 ? (
+                                questionnaire.questions.map((question, index) => (
+                                    <Text key={index}>{index + 1}. {question}</Text>
+                                ))
+                            ) : (
+                                <Text>No questions available.</Text>
+                            )}
+                        </VStack>
+                    </>
+                )}
+
+                <HStack spacing={4} justify="flex-start">
+                    {isEditing ? (
+                        <>
+                            <Button
+                                colorScheme="green"
+                                onClick={handleSave}
+                                isLoading={isSaving}
+                                loadingText="Saving..."
+                            >
+                                Save Changes
+                            </Button>
+                            <Button onClick={() => setIsEditing(false)}>Cancel</Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button colorScheme="blue" onClick={() => setIsEditing(true)}>
+                                Edit Questionnaire
+                            </Button>
+                            <Button colorScheme="red" onClick={handleDelete}>
+                                Delete Questionnaire
+                            </Button>
+                        </>
+                    )}
+                    <Button as={Link} to="/">Back to Dashboard</Button>
+                </HStack>
+
+                {questionnaire.interviews && questionnaire.interviews.length > 0 && (
                     <VStack align="stretch" spacing={4}>
                         <Heading size="md">Associated Interviews:</Heading>
-                        {questionnaire.interviews && questionnaire.interviews.length > 0 ? (
-                            questionnaire.interviews.map(interview => (
-                                <Box key={interview.id} p={3} borderWidth={1} borderRadius="md">
-                                    <Link to={`/interview/${interview.id}`}>
-                                        <Text fontWeight="bold">{interview.interviewee_name}</Text>
-                                        <Text fontSize="sm">{new Date(interview.date).toLocaleDateString()}</Text>
-                                        <Text fontSize="sm">Status: {interview.status}</Text>
-                                    </Link>
-                                </Box>
-                            ))
-                        ) : (
-                            <Text>No interviews associated with this questionnaire.</Text>
-                        )}
+                        {questionnaire.interviews.map(interview => (
+                            <Box key={interview.id} p={3} borderWidth={1} borderRadius="md">
+                                <Link to={`/interview/${interview.id}`}>
+                                    <Text fontWeight="bold">{interview.interviewee_name}</Text>
+                                    <Text fontSize="sm">{new Date(interview.date).toLocaleDateString()}</Text>
+                                    <Text fontSize="sm">Status: {interview.status}</Text>
+                                </Link>
+                            </Box>
+                        ))}
                     </VStack>
-                </>
-            )}
-            <HStack spacing={4} mt={4}>
-                <Button colorScheme="blue" onClick={handleEdit} width="200px">Edit Questionnaire</Button>
-                <Button colorScheme="red" onClick={handleDelete} width="200px">Delete Questionnaire</Button>
-            </HStack>
-            <Button as={Link} to="/" mt={8} width="200px">Back to Dashboard</Button>
+                )}
+            </VStack>
         </Box>
     );
 }

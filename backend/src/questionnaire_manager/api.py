@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from . import crud, models, schemas
 from .database import SessionLocal, engine
-from .llm_question_extractor import extract_and_verify_questions
+from .llm_question_extractor import question_extraction
 
 router = APIRouter()
 
@@ -53,7 +53,7 @@ async def create_questionnaire(
 
     try:
         # Extract questions and await the result
-        extracted_questions = await extract_and_verify_questions(content)
+        extracted_questions = await question_extraction(content)
 
         questionnaire = schemas.QuestionnaireCreate(
             title=title,
@@ -109,7 +109,7 @@ async def update_questionnaire(
         raise HTTPException(status_code=404, detail="Questionnaire not found")
 
     # Extract questions and await the result
-    extracted_questions = await extract_and_verify_questions(content)
+    extracted_questions = await question_extraction(content)
     questions = extracted_questions['items'] if isinstance(extracted_questions, dict) else extracted_questions
 
     questionnaire_data = schemas.QuestionnaireCreate(
