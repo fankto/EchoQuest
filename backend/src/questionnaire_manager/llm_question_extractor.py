@@ -6,10 +6,11 @@ import re
 from threading import Lock
 from typing import Dict, List
 
-from ..model_manager.manager import model_manager
 from .prompt_templates import extraction_messages
+from ..model_manager.manager import model_manager
 
 logger = logging.getLogger(__name__)
+
 
 class LLMQuestionExtractor:
     _instance = None
@@ -24,33 +25,25 @@ class LLMQuestionExtractor:
         return cls._instance if not force_new else instance
 
     def _clean_json(self, json_string: str) -> dict:
-        """Clean and parse JSON from model response"""
+        """Extract questions directly from the response using regex"""
         try:
-            # First try direct JSON parsing
-            data = json.loads(json_string)
+            # Find all "item": "..." patterns
+            import re
+            pattern = r'"item":\s*"([^"]+)"'
+            matches = re.finditer(pattern, json_string)
 
-            # Extract just the items from extracted_items
-            if isinstance(data, dict) and "extracted_items" in data:
-                items = [item["item"] for item in data["extracted_items"] if isinstance(item, dict) and "item" in item]
-                return {"items": items}
+            # Extract the questions
+            questions = [match.group(1) for match in matches]
 
-            return {"items": []}
+            # Filter out section headers (items that are only 2-3 words and Title Case)
+            questions = [q for q in questions if not (
+                    len(q.split()) <= 3 and q.title() == q
+            )]
 
-        except json.JSONDecodeError:
-            # If direct parsing fails, try to extract JSON using regex
-            try:
-                # Find JSON object pattern
-                json_pattern = r'\{[\s\S]*\}'
-                match = re.search(json_pattern, json_string)
-                if match:
-                    data = json.loads(match.group(0))
-                    if isinstance(data, dict) and "extracted_items" in data:
-                        items = [item["item"] for item in data["extracted_items"] if isinstance(item, dict) and "item" in item]
-                        return {"items": items}
-            except:
-                pass
+            return {"items": questions}
 
-            logger.error("Failed to parse JSON response")
+        except Exception as e:
+            logger.error(f"Error extracting questions: {str(e)}")
             return {"items": []}
 
     async def _get_model_response(self, messages: List[Dict[str, str]]) -> str:
@@ -103,11 +96,14 @@ class LLMQuestionExtractor:
                 logger.error(f"Error unloading model: {str(e)}")
 
 
-async def extract_and_verify_questions(content: str) -> Dict[str, list]:
+async def question_extraction(content: str) -> Dict[str, list]:
     """Main function to extract questions"""
     try:
         extractor = LLMQuestionExtractor()
         return await extractor.extract_questions(content)
     finally:
-        # Ensure model is unloaded after extraction
-        model_manager.unload_model('llm_extract')
+        try:
+            # Use synchronous unload
+            model_manager.unload_model('llm_extract')
+        except Exception as e:
+            logger.error(f"Error unloading model: {str(e)}")

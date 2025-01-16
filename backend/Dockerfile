@@ -64,7 +64,7 @@ ENV MODEL_DEVICE_MAP=auto
 
 # Ollama configuration
 ENV OLLAMA_HOST="http://ollama:11434"
-ENV OLLAMA_EXTRACT_MODEL="llama3.2:1b"
+ENV OLLAMA_EXTRACT_MODEL="llama3.2"
 ENV OLLAMA_ANSWER_MODEL="llama3.2"
 
 # Create directory for model cache

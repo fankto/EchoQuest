@@ -1,4 +1,5 @@
 # src/model_manager/manager.py
+import asyncio
 import gc
 import logging
 import os
@@ -161,27 +162,44 @@ class ModelManager:
         """Unload a specific model and clear its memory"""
         logger.info(f"Unloading model: {model_key}")
         try:
-            if model_key.startswith('llm_'):
-                model_name = self.ollama_settings.extract_model if model_key == 'llm_extract' else self.ollama_settings.answer_model
-                self.ollama_client.unload_model(model_name)
+            if model_key == 'llm_extract':
+                self.ollama_client.unload_model_sync(self.ollama_settings.extract_model)
+            elif model_key == 'llm_answer':
+                self.ollama_client.unload_model_sync(self.ollama_settings.answer_model)
 
             if model_key in self.models:
-                # Delete the model
                 if hasattr(self.models[model_key], 'cpu'):
                     self.models[model_key].cpu()
                 del self.models[model_key]
 
             if model_key in self.pipelines:
-                # Clean up pipeline
                 if hasattr(self.pipelines[model_key], 'cpu'):
                     self.pipelines[model_key].cpu()
                 del self.pipelines[model_key]
 
-            # Force CUDA memory cleanup
             self._clear_gpu_memory()
 
+            logger.info(f"Successfully unloaded model: {model_key}")
         except Exception as e:
             logger.error(f"Error unloading model {model_key}: {str(e)}")
+            raise
+
+    def unload_all(self):
+        """Unload all models and clear memory"""
+        logger.info("Unloading all models...")
+        try:
+            # Unload Ollama models using sync method
+            self.ollama_client.unload_model_sync(self.ollama_settings.extract_model)
+            self.ollama_client.unload_model_sync(self.ollama_settings.answer_model)
+
+            # Clear model dictionaries
+            self.models.clear()
+            self.pipelines.clear()
+
+            self._clear_gpu_memory()
+            logger.info("Successfully unloaded all models")
+        except Exception as e:
+            logger.error(f"Error during unload_all: {str(e)}")
             raise
 
     def _clear_gpu_memory(self):
@@ -194,15 +212,7 @@ class ModelManager:
 
             # Reset peak memory stats
             torch.cuda.reset_peak_memory_stats()
-
-    def unload_all(self):
-        """Unload all models and clear memory"""
-        logger.info("Unloading all models...")
-        self.models.clear()
-        self.pipelines.clear()
-        self.ollama_client.unload_model(self.ollama_settings.extract_model)
-        self.ollama_client.unload_model(self.ollama_settings.answer_model)
-        self._clear_gpu_memory()
+            logger.info("GPU memory cleared")
 
 
 # Create singleton instance
