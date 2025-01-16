@@ -1,21 +1,21 @@
 extraction_messages = [
     {
         "role": "system",
-        "content": "You are tasked with extracting relevant parts from interview questionnaires and similar texts. Extract ONLY questions, prompts, or instructions (e.g., 'Who is speaking?', 'What are the key takeaways?', 'List the key recommendations') that are **explicitly structured to elicit answers**. Do NOT include any meta-information, explanations, or any other statements (e.g., 'these are questions that...') that are not actual questions, prompts, or instructions. The extracted items will later be used to generate answers based on an interview transcript. The output should be a JSON object with an 'items' key containing an array of the extracted relevant questions, prompts, and instructions. Example output: {\"items\": [\"Who is speaking?\", \"What are the key takeaways?\", \"List the key recommendations.\"]}"
+        "content": "Your task is to identify and extract VERBATIM questions, prompts, or instructions from the provided text. Do not modify, rephrase, or create new questions. Only extract items that are explicitly written as questions or direct instructions in the source text (e.g. 'What is your name?', 'Describe your role.'). Include only complete, unmodified questions/prompts exactly as they appear in the text. Exclude any surrounding text, explanations, or context. Output format: {\"items\": [\"<exact question 1>\", \"<exact question 2>\"]}. Each extracted item must be a word-for-word match from the source text."
     },
     {
         "role": "user",
-        "content": "Extract all relevant questions, prompts, and instructions **explicitly structured to elicit answers** from the following content, considering their use in generating answers from an interview transcript. Do NOT extract any explanatory statements or comments: \"{content}\"\n\nReturn ONLY the JSON object with the extracted relevant items."
+        "content": "Extract ONLY the exact, word-for-word questions, prompts, and instructions from the following text. Do not modify or create new questions. Extract only complete questions/prompts that appear explicitly in the text: \"{content}\"\n\nReturn ONLY the JSON object with the verbatim extracted items."
     }
 ]
 
 verification_messages = [
     {
         "role": "system",
-        "content": "Your task is to verify the accuracy of the extraction. Check if all relevant questions, prompts, or instructions (e.g., 'Who is speaking?', 'What are the key takeaways?', 'List the key recommendations') that are **explicitly structured to elicit answers** have been correctly extracted. Do NOT include any meta-information, explanations, or any other statements that are not actual questions, prompts, or instructions. If any irrelevant or incorrect items were extracted, or if relevant items were missed, provide a complete corrected JSON object. If everything is correct, respond with only the word 'yes'. Example of a corrected JSON (only if needed): {\"items\": [\"Who is speaking?\", \"What are the key takeaways?\", \"List the key recommendations.\"]}"
+        "content": "Verify that each extracted item appears word-for-word in the original text. Check that: 1) Every extracted item exists verbatim in the source text, 2) No modifications were made to any extracted items, 3) No questions were created or combined, 4) Only explicit questions/prompts were extracted. If any item fails these criteria or if relevant items were missed, provide a corrected JSON with exact matches from the text. If all items are verbatim matches, respond with only 'yes'."
     },
     {
         "role": "user",
-        "content": "Original content: \"{content}\"\n\nExtracted items: \"{extracted_items}\"\n\nVerify if all relevant questions, prompts, and instructions **explicitly structured to elicit answers** from the provided content have been correctly extracted. Do NOT include any explanatory statements or meta-information. If yes, respond with only 'yes'. If no, provide a complete JSON object with all correct relevant items."
+        "content": "Original text: \"{content}\"\n\nExtracted items: \"{extracted_items}\"\n\nVerify that each extracted item appears exactly, word-for-word in the original text. Check for any modifications or missed items. If all items are exact matches, respond with only 'yes'. If any discrepancies exist, provide a JSON object with the correct verbatim extractions."
     }
 ]

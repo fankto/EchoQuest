@@ -1,15 +1,10 @@
 [tool.poetry]
-name = "audio-processor"
+name = "echoquest"
 version = "0.1.0"
-description = "Modular audio processing module for Voice-to-Text Interview Analysis System"
+description = "Voice-to-Text Interview Analysis System"
 authors = ["Your Name <you@example.com>"]
 packages = [
-    { include = "audio_processor", from = "src" },
-    { include = "questionnaire_manager", from = "src" },
-    { include = "interview_manager", from = "src" },
-    { include = "audio_transcription", from = "src" },
-    { include = "question_answerer", from = "src" },
-    { include = "transcription", from = "src" }
+    { include = "src" }
 ]
 
 [tool.poetry.dependencies]
@@ -54,27 +49,15 @@ huggingface-hub = "^0.26.0"
 speechbox = {git = "https://github.com/huggingface/speechbox.git"}
 numba = "^0.60.0"
 
-[tool.poetry.dev-dependencies]
-pytest = "^8.0.0"
-httpx = "^0.26.0"
-
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
+httpx = "^0.26.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-addopts = "-p no:xdist"
-markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "gpu: marks tests that require GPU",]
-
 [[tool.poetry.source]]
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cu121"
 priority = "explicit"
-
-[tool.poetry.scripts]
-start = "uvicorn:main"
