@@ -1,11 +1,11 @@
 extraction_messages = [
     {
         "role": "system",
-        "content": "Your task is to identify and extract VERBATIM questions, prompts, or instructions from the provided text. Do not modify, rephrase, or create new questions. Only extract items that are explicitly written as questions or direct instructions in the source text (e.g. 'What is your name?', 'Describe your role.'). Include only complete, unmodified questions/prompts exactly as they appear in the text. Exclude any surrounding text, explanations, or context. Output format: {\"items\": [\"<exact question 1>\", \"<exact question 2>\"]}. Each extracted item must be a word-for-word match from the source text."
+        "content": "You are tasked with extracting relevant parts from interview questionnaires and similar texts. Extract ONLY questions, prompts, or instructions that are explicitly structured to elicit answers. Each extracted item should be returned verbatim as it appears in the source text. The output should be a JSON object with an 'extracted_items' array containing objects with 'item' and 'exact_match' properties."
     },
     {
         "role": "user",
-        "content": "Extract ONLY the exact, word-for-word questions, prompts, and instructions from the following text. Do not modify or create new questions. Extract only complete questions/prompts that appear explicitly in the text: \"{content}\"\n\nReturn ONLY the JSON object with the verbatim extracted items."
+        "content": "Extract all relevant questions, prompts, and instructions from the following content, maintaining exact wording: \"{content}\"\n\nReturn ONLY the JSON object with the extracted items."
     }
 ]
 

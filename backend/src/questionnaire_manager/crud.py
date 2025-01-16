@@ -1,17 +1,24 @@
 # backend/src/questionnaire_manager/crud.py
-from typing import List, Dict
+from typing import List, Dict, Union
 
 from sqlalchemy.orm import Session
 
 from . import models, schemas
 
 
-def create_questionnaire(db: Session, questionnaire: schemas.QuestionnaireCreate, questions: Dict[str, list]):
+def create_questionnaire(
+        db: Session,
+        questionnaire: schemas.QuestionnaireCreate,
+        questions: Union[List[str], Dict[str, List[str]]]
+):
+    # Handle both direct list of questions and dict with 'items' key
+    question_list = questions['items'] if isinstance(questions, dict) else questions
+
     db_questionnaire = models.Questionnaire(
         title=questionnaire.title,
         content=questionnaire.content,
         file_type=questionnaire.file_type,
-        questions=questions['items']
+        questions=question_list
     )
     db.add(db_questionnaire)
     db.commit()
@@ -34,8 +41,12 @@ def get_questionnaires(db: Session, skip: int = 0, limit: int = 100):
     return questionnaires
 
 
-def update_questionnaire(db: Session, questionnaire_id: int, questionnaire: schemas.QuestionnaireCreate,
-                         questions: List[str] = None):
+def update_questionnaire(
+        db: Session,
+        questionnaire_id: int,
+        questionnaire: schemas.QuestionnaireCreate,
+        questions: List[str]
+):
     db_questionnaire = db.query(models.Questionnaire).filter(models.Questionnaire.id == questionnaire_id).first()
     if db_questionnaire:
         db_questionnaire.title = questionnaire.title

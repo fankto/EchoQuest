@@ -15,14 +15,12 @@ router = APIRouter()
 
 models.Base.metadata.create_all(bind=engine)
 
-
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
 
 @router.post("/", response_model=schemas.Questionnaire)
 async def create_questionnaire(
@@ -53,17 +51,25 @@ async def create_questionnaire(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
-    # Extract questions from the content using the LLM-based extractor
-    questions = extract_and_verify_questions(content)
+    try:
+        # Extract questions and await the result
+        extracted_questions = await extract_and_verify_questions(content)
 
-    questionnaire = schemas.QuestionnaireCreate(title=title, content=content, file_type=file.filename if file else "manual")
-    db_questionnaire = crud.create_questionnaire(db, questionnaire, questions)
+        questionnaire = schemas.QuestionnaireCreate(
+            title=title,
+            content=content,
+            file_type=file.filename if file else "manual"
+        )
 
-    if db_questionnaire.updated_at is None:
-        db_questionnaire.updated_at = db_questionnaire.created_at
-        db.commit()
-    return db_questionnaire
+        db_questionnaire = crud.create_questionnaire(db, questionnaire, extracted_questions)
 
+        if db_questionnaire.updated_at is None:
+            db_questionnaire.updated_at = db_questionnaire.created_at
+            db.commit()
+
+        return db_questionnaire
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating questionnaire: {str(e)}")
 
 @router.get("/", response_model=List[schemas.Questionnaire])
 def read_questionnaires(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -91,7 +97,6 @@ def read_questionnaire(questionnaire_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Questionnaire not found")
     return db_questionnaire
 
-
 @router.put("/{questionnaire_id}", response_model=schemas.Questionnaire)
 async def update_questionnaire(
         questionnaire_id: int,
@@ -103,9 +108,9 @@ async def update_questionnaire(
     if db_questionnaire is None:
         raise HTTPException(status_code=404, detail="Questionnaire not found")
 
-    # Extract questions from the updated content
-    extracted_questions = extract_and_verify_questions(content)
-    questions = extracted_questions['items']
+    # Extract questions and await the result
+    extracted_questions = await extract_and_verify_questions(content)
+    questions = extracted_questions['items'] if isinstance(extracted_questions, dict) else extracted_questions
 
     questionnaire_data = schemas.QuestionnaireCreate(
         title=title,
@@ -124,4 +129,3 @@ async def delete_questionnaire(questionnaire_id: int, db: Session = Depends(get_
     db.delete(questionnaire)
     db.commit()
     return {"message": "Questionnaire deleted successfully"}
-

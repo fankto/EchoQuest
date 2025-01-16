@@ -19,7 +19,24 @@ services:
       - PYTHONUNBUFFERED=1
       - HF_TOKEN=${HF_TOKEN}
       - TRANSFORMERS_CACHE=/root/.cache/huggingface
+      - OLLAMA_HOST=http://ollama:11434
     command: poetry run uvicorn src.main:app --host 0.0.0.0 --reload
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -44,3 +61,4 @@ services:
 volumes:
   node_modules:
   model_cache:
+  ollama_data:
