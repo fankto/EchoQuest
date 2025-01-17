@@ -39,7 +39,8 @@ class OllamaClient:
             data = {
                 "model": model,
                 "prompt": prompt,
-                "stream": False
+                "stream": False,
+                "keep_alive": 0  # Model will automatically unload after request
             }
             if system:
                 data["system"] = system
@@ -63,51 +64,10 @@ class OllamaClient:
             logger.error(f"Error loading model {model}: {str(e)}")
             raise
 
-    async def unload_model(self, model: str):
-        """Unload a model from Ollama"""
-        if model in self._models_loaded:
-            try:
-                # Changed from using json parameter to data parameter
-                response = self.client.delete(self._get_url("delete"), data={"name": model})
-                response.raise_for_status()
-                self._models_loaded.remove(model)
-                logger.info(f"Successfully unloaded model: {model}")
-
-                # Force garbage collection to help release VRAM
-                import gc
-                gc.collect()
-
-            except Exception as e:
-                logger.error(f"Error unloading model {model}: {str(e)}")
-                raise
-
-    def unload_model_sync(self, model: str):
-        """Synchronous version of unload_model"""
-        if model in self._models_loaded:
-            try:
-                # Changed from using json parameter to data parameter
-                response = self.client.delete(self._get_url("delete"), data={"name": model})
-                response.raise_for_status()
-                self._models_loaded.remove(model)
-                logger.info(f"Successfully unloaded model: {model}")
-
-                import gc
-                gc.collect()
-
-            except Exception as e:
-                logger.error(f"Error unloading model {model}: {str(e)}")
-                raise
-
     def __del__(self):
         """Cleanup when the client is destroyed"""
-        try:
-            for model in list(self._models_loaded):
-                self.unload_model_sync(model)
-        except Exception as e:
-            logger.error(f"Error during cleanup: {str(e)}")
-        finally:
-            if hasattr(self, 'client'):
-                self.client.close()
+        if hasattr(self, 'client'):
+            self.client.close()
 
 
 # Create a singleton instance

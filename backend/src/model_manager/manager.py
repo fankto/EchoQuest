@@ -1,9 +1,7 @@
 # src/model_manager/manager.py
-import asyncio
 import gc
 import logging
 import os
-import threading
 from typing import Dict, Optional
 
 import torch
@@ -18,15 +16,27 @@ from pydantic_settings import BaseSettings
 
 
 class ModelSettings(BaseSettings):
-    ASR_MODEL: str = "openai/whisper-large-v3-turbo"
+    ASR_MODEL: str = "openai/whisper-large-v3"
     DIARIZATION_MODEL: str = "pyannote/speaker-diarization-3.1"
 
-    ASR_BATCH_SIZE: int = 4
-    ASR_CHUNK_LENGTH: int = 30
+    # ASR settings optimized for full-file processing
+    ASR_BATCH_SIZE: int = 1  # Keep batch size at 1 for full file processing
     ASR_RETURN_TIMESTAMPS: bool = True
 
+    # Memory optimization
     TORCH_DTYPE: str = "float16"
     DEVICE_MAP: str = "auto"
+
+    # GPU optimization settings
+    TORCH_COMPILE: bool = True
+    NUM_WORKERS: int = 2
+    MAX_MEMORY: Dict[str, str] = {
+        "cuda:0": "9GB",
+    }
+
+    # Diarization settings
+    DIARIZATION_MIN_SPEAKERS: int = 1
+    DIARIZATION_MAX_SPEAKERS: int = 5
 
     model_config = {
         "env_prefix": "MODEL_"
@@ -38,29 +48,41 @@ settings = ModelSettings()
 
 class ModelManager:
     _instance = None
-    _lock = threading.Lock()
 
     def __new__(cls):
         if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super(ModelManager, cls).__new__(cls)
-                    cls._instance._initialize()
+            cls._instance = super(ModelManager, cls).__new__(cls)
+            cls._instance._initialize()
         return cls._instance
 
     def _initialize(self):
         """Initialize the model manager with CUDA optimizations"""
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if torch.cuda.is_available():
+            # Enable TF32 for better performance on Ampere GPUs
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
-            torch.cuda.set_per_process_memory_fraction(0.9)
+
+            # Enable cudnn benchmark mode for optimized convolution algorithms
+            torch.backends.cudnn.benchmark = True
+
+            # Set autocast dtype
+            torch.set_float32_matmul_precision('high')
+
+            # Configure memory management
+            torch.cuda.set_per_process_memory_fraction(0.95)
+            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = (
+                'max_split_size_mb:512,'
+                'garbage_collection_threshold:0.8,'
+                'roundup_power2_divisions:4'
+            )
 
         self.models: Dict[str, any] = {}
         self.pipelines: Dict[str, any] = {}
+        self.processors: Dict[str, any] = {}
 
         # Initialize Ollama client
-        self.ollama_settings = OllamaSettings()  # Changed from from_env() to direct instantiation
+        self.ollama_settings = OllamaSettings()
         self.ollama_client = OllamaClient(self.ollama_settings)
 
         # Define model configurations
@@ -76,13 +98,144 @@ class ModelManager:
             'diarization': {
                 'name': settings.DIARIZATION_MODEL,
                 'type': 'diarization',
-                'requires_auth': True
+                'requires_auth': True,
+                'params': {
+                    'min_speakers': settings.DIARIZATION_MIN_SPEAKERS,
+                    'max_speakers': settings.DIARIZATION_MAX_SPEAKERS
+                }
             }
         }
 
+    def _load_asr(self, config: Dict) -> any:
+        """Load ASR model with full-file processing configuration"""
+        logger.info(f"Starting ASR model loading process for {config['name']}")
+        try:
+            from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+            import torch
+
+            hf_token = os.getenv('HF_TOKEN')
+            if not hf_token:
+                logger.error("HF_TOKEN environment variable is not set")
+                raise ValueError("HF_TOKEN is required but not set")
+
+            # Verify token
+            logger.info("Verifying HF_TOKEN...")
+            from huggingface_hub import HfApi
+            api = HfApi()
+            try:
+                api.whoami(token=hf_token)
+                logger.info("HF_TOKEN verification successful")
+            except Exception as e:
+                logger.error(f"HF_TOKEN verification failed: {str(e)}")
+                raise ValueError(f"Invalid HF_TOKEN: {str(e)}")
+
+            cache_dir = os.getenv('TRANSFORMERS_CACHE', '/root/.cache/huggingface')
+            os.makedirs(cache_dir, exist_ok=True)
+
+            # Load processor
+            logger.info(f"Loading processor for {config['name']}")
+            try:
+                processor = AutoProcessor.from_pretrained(
+                    config['name'],
+                    token=hf_token,  # Updated from use_auth_token
+                    cache_dir=cache_dir,
+                    trust_remote_code=True,
+                )
+                logger.info("Processor loaded successfully")
+            except Exception as e:
+                logger.error(f"Failed to load processor: {str(e)}")
+                raise
+
+            # Load model
+            logger.info(f"Loading model {config['name']}")
+            try:
+                model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                    config['name'],
+                    token=hf_token,
+                    cache_dir=cache_dir,
+                    trust_remote_code=True,
+                    torch_dtype=config['quantization']['torch_dtype'],
+                    device_map="auto",
+                    low_cpu_mem_usage=True,
+                )
+                logger.info("Model loaded successfully")
+            except Exception as e:
+                logger.error(f"Failed to load model: {str(e)}")
+                raise
+
+            # Optimize model
+            logger.info(f"Optimizing model for {self.device}")
+            model = model.to(self.device)
+
+            if settings.TORCH_COMPILE:
+                logger.info("Compiling model")
+                try:
+                    model = torch.compile(model)
+                    logger.info("Model compilation completed")
+                except Exception as e:
+                    logger.warning(f"Model compilation failed, continuing without compilation: {str(e)}")
+
+            # Create pipeline
+            logger.info("Creating ASR pipeline")
+            asr_pipeline = pipeline(
+                "automatic-speech-recognition",
+                model=model,
+                tokenizer=processor.tokenizer,
+                feature_extractor=processor.feature_extractor,
+                batch_size=config['quantization']['batch_size'],
+                return_timestamps=settings.ASR_RETURN_TIMESTAMPS,
+            )
+
+            # Log memory usage
+            if torch.cuda.is_available():
+                memory_allocated = torch.cuda.memory_allocated() / 1024 ** 2
+                memory_reserved = torch.cuda.memory_reserved() / 1024 ** 2
+                logger.info(f"CUDA memory allocated: {memory_allocated:.2f} MB")
+                logger.info(f"CUDA memory reserved: {memory_reserved:.2f} MB")
+
+            self.processors[config['name']] = processor
+            return asr_pipeline.model
+
+        except Exception as e:
+            logger.error(f"Error in ASR model loading: {str(e)}", exc_info=True)
+            raise
+
+    def _load_diarization(self, config: Dict) -> DiarizationPipeline:
+        """Load diarization model with optimized settings"""
+        logger.info(f"Loading diarization model with config: {config}")
+        try:
+            logger.info("Checking auth token")
+            auth_token = os.getenv("HF_TOKEN")
+            if not auth_token:
+                error_msg = "HF_TOKEN environment variable not set"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
+            logger.info("Creating diarization pipeline")
+            pipeline = DiarizationPipeline.from_pretrained(
+                config['name'],
+                cache_dir=os.getenv("TRANSFORMERS_CACHE"),
+                use_auth_token=auth_token
+            )
+
+            # Move to device and apply settings
+            pipeline = pipeline.to(self.device)
+
+            # Configure pipeline parameters
+            pipeline.min_speakers = config['params']['min_speakers']
+            pipeline.max_speakers = config['params']['max_speakers']
+
+            logger.info("Diarization pipeline created and configured successfully")
+            return pipeline
+
+        except Exception as e:
+            logger.error(f"Error loading diarization model: {str(e)}", exc_info=True)
+            raise
+
     def get_model(self, model_key: str) -> Optional[any]:
         """Get or load model for specified key"""
-        with self._lock:
+        logger.info(f"Getting model for key: {model_key}")
+        try:
             if model_key not in self.models:
                 config = self.model_configs.get(model_key)
                 if not config:
@@ -90,18 +243,27 @@ class ModelManager:
 
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
+                    memory_before = torch.cuda.memory_allocated()
 
                 if config['type'] == 'asr':
                     self.models[model_key] = self._load_asr(config)
                 elif config['type'] == 'diarization':
                     self.models[model_key] = self._load_diarization(config)
 
+                if torch.cuda.is_available():
+                    memory_after = torch.cuda.memory_allocated()
+                    logger.info(f"Memory increase: {(memory_after - memory_before) / 1024 ** 2:.2f} MB")
+
             return self.models[model_key]
+        except Exception as e:
+            logger.error(f"Error in get_model for {model_key}: {str(e)}", exc_info=True)
+            raise
 
     def get_pipeline(self, pipeline_key: str) -> Optional[any]:
         """Get or create pipeline for specified key"""
-        with self._lock:
-            if pipeline_key == 'llm_extract' or pipeline_key == 'llm_answer':
+        logger.info(f"Getting pipeline for key: {pipeline_key}")
+        try:
+            if pipeline_key in ['llm_extract', 'llm_answer']:
                 return self.ollama_client
 
             if pipeline_key not in self.pipelines:
@@ -109,75 +271,45 @@ class ModelManager:
                 if not config:
                     raise ValueError(f"Unknown pipeline key: {pipeline_key}")
 
+                model = self.get_model(pipeline_key)
+                if model is None:
+                    raise RuntimeError(f"Failed to load model for pipeline {pipeline_key}")
+
                 if config['type'] == 'asr':
+                    processor = self.processors[config['name']]
                     self.pipelines[pipeline_key] = pipeline(
                         "automatic-speech-recognition",
-                        model=self.get_model(pipeline_key),
-                        device=self.device,
+                        model=model,
+                        tokenizer=processor.tokenizer,
+                        feature_extractor=processor.feature_extractor,
                         torch_dtype=config['quantization']['torch_dtype'],
                         batch_size=config['quantization']['batch_size'],
-                        return_timestamps=settings.ASR_RETURN_TIMESTAMPS,
-                        chunk_length_s=settings.ASR_CHUNK_LENGTH,
+                        return_timestamps=settings.ASR_RETURN_TIMESTAMPS
                     )
                 elif config['type'] == 'diarization':
-                    self.pipelines[pipeline_key] = self.get_model(pipeline_key)
+                    self.pipelines[pipeline_key] = model
 
             return self.pipelines[pipeline_key]
-
-    def _load_asr(self, config: Dict) -> any:
-        """Load ASR model"""
-        return pipeline(
-            "automatic-speech-recognition",
-            model=config['name'],
-            device=self.device,
-            torch_dtype=config['quantization']['torch_dtype'],
-            batch_size=config['quantization']['batch_size']
-        ).model
-
-    def _load_diarization(self, config: Dict) -> DiarizationPipeline:
-        """Load diarization model"""
-        return DiarizationPipeline.from_pretrained(
-            config['name'],
-            use_auth_token=os.getenv("HF_TOKEN"),
-            cache_dir=os.getenv("TRANSFORMERS_CACHE")
-        ).to(self.device)
-
-    def preload_all_models(self):
-        """Preload all configured models"""
-        logger.info("Preloading all models...")
-        try:
-            for model_key in self.model_configs.keys():
-                logger.info(f"Loading model: {model_key}")
-                self.get_model(model_key)
-                self.get_pipeline(model_key)
-
-            # Preload Ollama models
-            self.ollama_client.load_model(self.ollama_settings.extract_model)
-            self.ollama_client.load_model(self.ollama_settings.answer_model)
         except Exception as e:
-            logger.error(f"Error preloading models: {str(e)}")
+            logger.error(f"Error in get_pipeline for {pipeline_key}: {str(e)}", exc_info=True)
             raise
 
     def unload_model(self, model_key: str):
         """Unload a specific model and clear its memory"""
         logger.info(f"Unloading model: {model_key}")
         try:
-            if model_key == 'llm_extract':
-                self.ollama_client.unload_model_sync(self.ollama_settings.extract_model)
-            elif model_key == 'llm_answer':
-                self.ollama_client.unload_model_sync(self.ollama_settings.answer_model)
+            if model_key not in ['llm_extract', 'llm_answer']:
+                if model_key in self.models:
+                    if hasattr(self.models[model_key], 'cpu'):
+                        self.models[model_key].cpu()
+                    del self.models[model_key]
 
-            if model_key in self.models:
-                if hasattr(self.models[model_key], 'cpu'):
-                    self.models[model_key].cpu()
-                del self.models[model_key]
+                if model_key in self.pipelines:
+                    if hasattr(self.pipelines[model_key], 'cpu'):
+                        self.pipelines[model_key].cpu()
+                    del self.pipelines[model_key]
 
-            if model_key in self.pipelines:
-                if hasattr(self.pipelines[model_key], 'cpu'):
-                    self.pipelines[model_key].cpu()
-                del self.pipelines[model_key]
-
-            self._clear_gpu_memory()
+                self._clear_gpu_memory()
 
             logger.info(f"Successfully unloaded model: {model_key}")
         except Exception as e:
@@ -188,14 +320,8 @@ class ModelManager:
         """Unload all models and clear memory"""
         logger.info("Unloading all models...")
         try:
-            # Unload Ollama models using sync method
-            self.ollama_client.unload_model_sync(self.ollama_settings.extract_model)
-            self.ollama_client.unload_model_sync(self.ollama_settings.answer_model)
-
-            # Clear model dictionaries
             self.models.clear()
             self.pipelines.clear()
-
             self._clear_gpu_memory()
             logger.info("Successfully unloaded all models")
         except Exception as e:
@@ -209,8 +335,6 @@ class ModelManager:
             with torch.cuda.device('cuda'):
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
-
-            # Reset peak memory stats
             torch.cuda.reset_peak_memory_stats()
             logger.info("GPU memory cleared")
 

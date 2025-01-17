@@ -88,12 +88,6 @@ class LLMQuestionExtractor:
         except Exception as e:
             logger.error(f"Error in extracting questions: {str(e)}")
             raise
-        finally:
-            # Ensure cleanup happens even if there's an error
-            try:
-                model_manager.unload_model('llm_extract')
-            except Exception as e:
-                logger.error(f"Error unloading model: {str(e)}")
 
 
 async def question_extraction(content: str) -> Dict[str, list]:

@@ -1,4 +1,5 @@
 # backend/src/interview_manager/audio_endpoints.py
+import gc
 import json
 import mimetypes
 import os
@@ -8,6 +9,8 @@ from datetime import datetime
 from itertools import chain
 from os.path import basename
 from typing import Optional, List, Dict
+
+import torch
 from dateutil import parser
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, File, UploadFile, Form, Body, Query
@@ -267,7 +270,6 @@ async def get_audio(filename: str):
 
     return FileResponse(file_path, media_type=mime_type)
 
-# Modify the existing transcribe_audio function to handle multiple files and merge transcriptions
 @router.post("/transcribe/{interview_id}", response_model=InterviewResponse)
 async def transcribe_audio(
         interview_id: int,
@@ -291,28 +293,54 @@ async def transcribe_audio(
     db.commit()
 
     def transcribe_task(interview_id: int):
+        logger.info(f"Starting transcription task for interview {interview_id}")
         try:
             db = next(get_db())
             interview = db.query(Interview).filter(Interview.id == interview_id).first()
+
+            if not interview:
+                logger.error(f"Interview {interview_id} not found")
+                return
 
             interview.status = "transcribing"
             db.commit()
 
             transcription_module = TranscriptionModule()
             all_transcriptions = []
-            for filename in json.loads(interview.processed_filenames or '[]'):
+
+            processed_files = json.loads(interview.processed_filenames or '[]')
+            logger.info(f"Processing {len(processed_files)} audio files for interview {interview_id}")
+
+            for idx, filename in enumerate(processed_files, 1):
+                logger.info(f"Processing file {idx}/{len(processed_files)}: {filename}")
+
                 audio_path = os.path.join(audio_settings.UPLOAD_DIRECTORY, filename)
                 if not os.path.exists(audio_path):
-                    raise FileNotFoundError(f"Processed audio file not found: {audio_path}")
+                    error_msg = f"Processed audio file not found: {audio_path}"
+                    logger.error(error_msg)
+                    raise FileNotFoundError(error_msg)
 
-                results = transcription_module.transcribe_and_diarize(
-                    audio_path,
-                    min_speakers=interview.min_speakers,
-                    max_speakers=interview.max_speakers
-                )
-                all_transcriptions.extend(results)
+                try:
+                    results = transcription_module.transcribe_and_diarize(
+                        audio_path,
+                        min_speakers=interview.min_speakers,
+                        max_speakers=interview.max_speakers
+                    )
+                    all_transcriptions.extend(results)
+                    logger.info(f"Successfully transcribed file {idx}/{len(processed_files)}")
+                except Exception as e:
+                    error_msg = f"Error transcribing file {filename}: {str(e)}"
+                    logger.error(error_msg, exc_info=True)
+                    raise RuntimeError(error_msg)
 
-            merged_transcriptions = transcription_module.merge_segments(all_transcriptions)
+            if not all_transcriptions:
+                error_msg = "No transcriptions were generated"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
+            logger.info("Merging all transcriptions")
+            # Use the correct method name with underscore
+            merged_transcriptions = transcription_module._merge_segments(all_transcriptions)
             formatted_transcription = transcription_module.format_as_transcription(merged_transcriptions)
 
             interview.transcriptions = json.dumps(all_transcriptions)
@@ -320,13 +348,25 @@ async def transcribe_audio(
             interview.status = "transcribed"
             db.commit()
 
-            logger.info(f"Transcription completed for interview {interview_id}")
+            logger.info(f"Transcription completed successfully for interview {interview_id}")
 
         except Exception as e:
-            logger.error(f"Error transcribing audio for interview {interview_id}: {str(e)}")
-            interview.status = "error"
-            interview.error_message = str(e)
-            db.commit()
+            logger.error(f"Error in transcribe_task for interview {interview_id}: {str(e)}", exc_info=True)
+            try:
+                interview.status = "error"
+                interview.error_message = str(e)
+                db.commit()
+            except Exception as db_error:
+                logger.error(f"Failed to update interview error status: {str(db_error)}")
+
+        finally:
+            try:
+                # Clean up GPU memory
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                gc.collect()
+            except Exception as cleanup_error:
+                logger.error(f"Error during cleanup: {str(cleanup_error)}")
 
     background_tasks.add_task(transcribe_task, interview_id)
     return interview
@@ -344,7 +384,7 @@ async def generate_answers(interview_id: int, background_tasks: BackgroundTasks,
     if not questionnaire:
         raise HTTPException(status_code=404, detail="Associated questionnaire not found")
 
-    def generate_answers_task(interview_id: int):
+    async def generate_answers_task(interview_id: int):
         try:
             db = next(get_db())
             interview = db.query(Interview).filter(Interview.id == interview_id).first()
@@ -364,7 +404,7 @@ async def generate_answers(interview_id: int, background_tasks: BackgroundTasks,
             total_questions = len(questionnaire.questions)
             for i, question in enumerate(questionnaire.questions, 1):
                 try:
-                    answer = question_answerer.answer_question(question, context)
+                    answer = await question_answerer.answer_question(question, context)
                     generated_answers[question] = answer
 
                     interview.progress = (i / total_questions) * 100

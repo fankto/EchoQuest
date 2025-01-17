@@ -49,6 +49,7 @@ huggingface-hub = "^0.26.0"
 speechbox = {git = "https://github.com/huggingface/speechbox.git"}
 numba = "^0.60.0"
 httpx = "^0.28.1"
+resampy = "^0.4.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
