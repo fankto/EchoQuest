@@ -15,6 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class TranscriptionModule:
+    LANGUAGE_MODELS = {
+        'gsw': 'nizarmichaud/whisper-large-v3-turbo-swissgerman',
+        'default': 'openai/whisper-large-v3'
+    }
+
     def __init__(self):
         logger.info("Initializing TranscriptionModule")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -62,59 +67,55 @@ class TranscriptionModule:
             self,
             audio_path: str,
             min_speakers: Optional[int] = None,
-            max_speakers: Optional[int] = None
+            max_speakers: Optional[int] = None,
+            language: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Process full audio file with transcription and diarization"""
         try:
             logger.info(f"Starting transcription and diarization for: {audio_path}")
+            logger.info(f"Language setting: {language}")
 
             # Load audio
             audio = self.load_audio(audio_path)
 
-            # Run diarization first on full file
-            logger.info("Initializing diarization pipeline")
-            diarization_pipeline = model_manager.get_pipeline('diarization')
-            if not diarization_pipeline:
-                raise RuntimeError("Failed to initialize diarization pipeline")
-
-            # Run diarization on full file
+            # Run diarization on FULL audio file
             logger.info("Starting diarization")
-            with torch.cuda.amp.autocast():
+            diarization_pipeline = model_manager.get_pipeline('diarization')
+            with torch.amp.autocast('cuda'):
                 diarization_result = diarization_pipeline(
                     audio_path,
                     min_speakers=min_speakers,
                     max_speakers=max_speakers,
-                    num_speakers=None  # Let the model determine speaker count if not specified
+                    num_speakers=None
                 )
-
-            if not isinstance(diarization_result, Annotation):
-                raise ValueError("Diarization failed to produce valid results")
 
             logger.info("Diarization completed successfully")
 
-            # Get ASR pipeline
-            logger.info("Initializing ASR pipeline")
-            asr_pipeline = model_manager.get_pipeline('asr')
-            if not asr_pipeline:
-                raise RuntimeError("Failed to initialize ASR pipeline")
-
-            # Run ASR on full file
+            # Get appropriate ASR model based on language
             logger.info("Starting ASR processing")
-            with torch.cuda.amp.autocast():
+            asr_pipeline = model_manager.get_pipeline('asr', language=language)
+
+            # Set generate kwargs based on the model
+            generate_kwargs = {
+                "task": "transcribe",
+            }
+
+            # Only add language parameter if we're not using the Swiss German model
+            if language != 'gsw':
+                generate_kwargs["language"] = language
+
+            with torch.amp.autocast('cuda'):
                 asr_result = asr_pipeline(
                     audio["array"],
                     return_timestamps=True,
-                    chunk_length_s=30,  # Process in 30-second chunks but maintain continuity
-                    stride_length_s=5  # 5-second overlap between chunks
+                    chunk_length_s=300,     # 5-minute chunks
+                    stride_length_s=15,      # 15-second overlap
+                    batch_size=1,
+                    generate_kwargs=generate_kwargs
                 )
 
-            if not asr_result or 'chunks' not in asr_result:
-                raise ValueError("ASR failed to produce valid results")
-
-            logger.info(f"ASR completed successfully")
+            logger.info("ASR completed successfully")
 
             # Process and merge results
-            logger.info("Processing and merging results")
             processed_segments = self._process_results(asr_result, diarization_result)
 
             return processed_segments
@@ -123,11 +124,15 @@ class TranscriptionModule:
             logger.error(f"Error in transcribe_and_diarize: {str(e)}", exc_info=True)
             raise
         finally:
-            if torch.cuda.is_available():
-                model_manager.unload_model('asr')
-                model_manager.unload_model('diarization')
-                torch.cuda.empty_cache()
-                gc.collect()
+            self._cleanup()
+
+    def _cleanup(self):
+        """Cleanup resources after transcription"""
+        if torch.cuda.is_available():
+            model_manager.unload_model('asr')
+            model_manager.unload_model('diarization')
+            torch.cuda.empty_cache()
+            gc.collect()
 
     def _process_results(self, asr_result: Dict, diarization_result: Annotation) -> List[Dict[str, Any]]:
         """Process and merge ASR and diarization results"""

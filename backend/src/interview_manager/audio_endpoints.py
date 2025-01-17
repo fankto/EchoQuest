@@ -270,12 +270,15 @@ async def get_audio(filename: str):
 
     return FileResponse(file_path, media_type=mime_type)
 
+# In audio_endpoints.py
+
 @router.post("/transcribe/{interview_id}", response_model=InterviewResponse)
 async def transcribe_audio(
         interview_id: int,
         background_tasks: BackgroundTasks,
         min_speakers: Optional[int] = Body(None),
         max_speakers: Optional[int] = Body(None),
+        language: Optional[str] = Body(None),  # Add language parameter
         db: Session = Depends(get_db)
 ):
     interview = db.query(Interview).filter(Interview.id == interview_id).first()
@@ -285,11 +288,10 @@ async def transcribe_audio(
     if not interview.processed_filenames:
         raise HTTPException(status_code=400, detail="No processed audio files found. Please process the audio first.")
 
-    # Update min_speakers and max_speakers if provided
-    if min_speakers is not None:
-        interview.min_speakers = min_speakers
-    if max_speakers is not None:
-        interview.max_speakers = max_speakers
+    # Update interview with transcription settings
+    interview.min_speakers = min_speakers if min_speakers is not None else interview.min_speakers
+    interview.max_speakers = max_speakers if max_speakers is not None else interview.max_speakers
+    interview.language = language  # Add this field to your Interview model
     db.commit()
 
     def transcribe_task(interview_id: int):
@@ -316,15 +318,14 @@ async def transcribe_audio(
 
                 audio_path = os.path.join(audio_settings.UPLOAD_DIRECTORY, filename)
                 if not os.path.exists(audio_path):
-                    error_msg = f"Processed audio file not found: {audio_path}"
-                    logger.error(error_msg)
-                    raise FileNotFoundError(error_msg)
+                    raise FileNotFoundError(f"Processed audio file not found: {audio_path}")
 
                 try:
                     results = transcription_module.transcribe_and_diarize(
                         audio_path,
                         min_speakers=interview.min_speakers,
-                        max_speakers=interview.max_speakers
+                        max_speakers=interview.max_speakers,
+                        language=interview.language  # Pass language to transcription module
                     )
                     all_transcriptions.extend(results)
                     logger.info(f"Successfully transcribed file {idx}/{len(processed_files)}")
@@ -334,12 +335,9 @@ async def transcribe_audio(
                     raise RuntimeError(error_msg)
 
             if not all_transcriptions:
-                error_msg = "No transcriptions were generated"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ValueError("No transcriptions were generated")
 
             logger.info("Merging all transcriptions")
-            # Use the correct method name with underscore
             merged_transcriptions = transcription_module._merge_segments(all_transcriptions)
             formatted_transcription = transcription_module.format_as_transcription(merged_transcriptions)
 
@@ -348,20 +346,13 @@ async def transcribe_audio(
             interview.status = "transcribed"
             db.commit()
 
-            logger.info(f"Transcription completed successfully for interview {interview_id}")
-
         except Exception as e:
-            logger.error(f"Error in transcribe_task for interview {interview_id}: {str(e)}", exc_info=True)
-            try:
-                interview.status = "error"
-                interview.error_message = str(e)
-                db.commit()
-            except Exception as db_error:
-                logger.error(f"Failed to update interview error status: {str(db_error)}")
-
+            logger.error(f"Error in transcribe_task: {str(e)}")
+            interview.status = "error"
+            interview.error_message = str(e)
+            db.commit()
         finally:
             try:
-                # Clean up GPU memory
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 gc.collect()

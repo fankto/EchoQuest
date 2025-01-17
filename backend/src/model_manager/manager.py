@@ -48,6 +48,10 @@ settings = ModelSettings()
 
 class ModelManager:
     _instance = None
+    LANGUAGE_MODEL_MAPPING = {
+        'gsw': 'nizarmichaud/whisper-large-v3-turbo-swissgerman',
+        'default': 'openai/whisper-large-v3'
+    }
 
     def __new__(cls):
         if cls._instance is None:
@@ -251,23 +255,40 @@ class ModelManager:
             logger.error(f"Error in get_model for {model_key}: {str(e)}", exc_info=True)
             raise
 
-    def get_pipeline(self, pipeline_key: str, config: Optional[Dict] = None) -> Optional[any]:
-        """Get or create pipeline for specified key with optional runtime config"""
+    def _get_asr_model_name(self, language: Optional[str] = None) -> str:
+        """Get the appropriate model name based on language"""
+        if language == 'gsw':  # Swiss German
+            return self.LANGUAGE_MODEL_MAPPING['gsw']
+        return self.LANGUAGE_MODEL_MAPPING['default']
+
+    def get_pipeline(self, pipeline_key: str, language: Optional[str] = None) -> Optional[any]:
+        """Get or create pipeline for specified key with language support"""
         logger.info(f"Getting pipeline for key: {pipeline_key}")
         try:
             if pipeline_key in ['llm_extract', 'llm_answer']:
                 return self.ollama_client
 
+            # For ASR pipeline with language support
+            if pipeline_key == 'asr':
+                # Get model name based on language
+                model_name = self._get_asr_model_name(language)
+                pipeline_key = f"{pipeline_key}_{language if language else 'default'}"
+
+            # Check if pipeline exists
             if pipeline_key not in self.pipelines:
-                model_config = self.model_configs.get(pipeline_key)
-                if not model_config:
-                    raise ValueError(f"Unknown pipeline key: {pipeline_key}")
+                if pipeline_key.startswith('asr'):
+                    model_config = self.model_configs.get('asr')
+                    if not model_config:
+                        raise ValueError(f"Unknown pipeline key: {pipeline_key}")
 
-                model = self.get_model(pipeline_key)
-                if model is None:
-                    raise RuntimeError(f"Failed to load model for pipeline {pipeline_key}")
+                    # Update model name in config for specific language
+                    if language:
+                        model_config = {**model_config, 'name': self._get_asr_model_name(language)}
 
-                if model_config['type'] == 'asr':
+                    model = self._load_asr(model_config)
+                    if model is None:
+                        raise RuntimeError(f"Failed to load model for pipeline {pipeline_key}")
+
                     processor = self.processors[model_config['name']]
                     self.pipelines[pipeline_key] = pipeline(
                         "automatic-speech-recognition",
@@ -278,20 +299,26 @@ class ModelManager:
                         batch_size=model_config['quantization']['batch_size'],
                         return_timestamps=settings.ASR_RETURN_TIMESTAMPS
                     )
-                elif model_config['type'] == 'diarization':
-                    # For diarization, create new pipeline instance
-                    hf_token = os.getenv('HF_TOKEN')
-                    if not hf_token:
-                        raise ValueError("HF_TOKEN is required but not set")
+
+                elif pipeline_key == 'diarization':
+                    model_config = self.model_configs.get('diarization')
+                    if not model_config:
+                        raise ValueError(f"Unknown pipeline key: diarization")
+
+                    logger.info("Creating diarization pipeline")
+                    auth_token = os.getenv("HF_TOKEN")
+                    if not auth_token:
+                        raise ValueError("HF_TOKEN environment variable not set")
 
                     diarization_pipeline = DiarizationPipeline.from_pretrained(
                         model_config['name'],
-                        use_auth_token=hf_token,
+                        use_auth_token=auth_token,
                         cache_dir=os.getenv("TRANSFORMERS_CACHE")
                     )
 
                     # Move pipeline to device
                     self.pipelines[pipeline_key] = diarization_pipeline.to(self.device)
+                    logger.info("Diarization pipeline created successfully")
 
             return self.pipelines[pipeline_key]
 

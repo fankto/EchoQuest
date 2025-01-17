@@ -9,6 +9,7 @@ import {
     AccordionButton,
     AccordionPanel,
     AccordionIcon,
+    Divider
 } from '@chakra-ui/react';
 
 function AudioPlayer({ filename }) {
@@ -57,6 +58,74 @@ function AudioPlayer({ filename }) {
     );
 }
 
+const TranscriptionSettings = ({
+                                   minSpeakers,
+                                   setMinSpeakers,
+                                   maxSpeakers,
+                                   setMaxSpeakers,
+                                   language,
+                                   setLanguage
+                               }) => {
+    const languageOptions = [
+        { value: '', label: 'Auto Detect' },
+        { value: 'en', label: 'English' },
+        { value: 'de', label: 'German' },
+        { value: 'gsw', label: 'Swiss German' }
+    ];
+
+    return (
+        <Box mt={4}>
+            <Text fontWeight="bold" mb={2}>Transcription Settings</Text>
+            <Box display="flex" gap={4}>
+                <Box flex={1}>
+                    <Text>Min Speakers:</Text>
+                    <NumberInput
+                        min={1}
+                        max={10}
+                        value={minSpeakers}
+                        onChange={(value) => setMinSpeakers(value)}
+                    >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                            <NumberIncrementStepper />
+                            <NumberDecrementStepper />
+                        </NumberInputStepper>
+                    </NumberInput>
+                </Box>
+                <Box flex={1}>
+                    <Text>Max Speakers:</Text>
+                    <NumberInput
+                        min={1}
+                        max={10}
+                        value={maxSpeakers}
+                        onChange={(value) => setMaxSpeakers(value)}
+                    >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                            <NumberIncrementStepper />
+                            <NumberDecrementStepper />
+                        </NumberInputStepper>
+                    </NumberInput>
+                </Box>
+                <Box flex={1}>
+                    <Text>Language:</Text>
+                    <Select
+                        value={language || ''}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        placeholder="Select language"
+                    >
+                        {languageOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </Select>
+                </Box>
+            </Box>
+        </Box>
+    );
+};
+
 function formatTime(time) {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
@@ -77,6 +146,8 @@ function InterviewDetail() {
     const [maxSpeakers, setMaxSpeakers] = useState('');
     const [questionnaires, setQuestionnaires] = useState([]);
     const [selectedQuestionnaireId, setSelectedQuestionnaireId] = useState(null);
+    const [language, setLanguage] = useState('');
+
     const toast = useToast();
 
     const fetchInterview = useCallback(async () => {
@@ -337,6 +408,7 @@ function InterviewDetail() {
                 body: JSON.stringify({
                     min_speakers: minSpeakers ? parseInt(minSpeakers) : null,
                     max_speakers: maxSpeakers ? parseInt(maxSpeakers) : null,
+                    language: language || null,
                 }),
             });
             if (response.ok) {
@@ -582,57 +654,88 @@ function InterviewDetail() {
                             <AccordionIcon />
                         </AccordionButton>
                         <AccordionPanel pb={4}>
+                            {/* Transcription Settings */}
                             <Box mt={4}>
                                 <Heading size="sm">Transcription Settings</Heading>
-                                <Flex mt={2}>
-                                    <Box mr={4}>
-                                        <Text>Min Speakers:</Text>
-                                        <NumberInput
-                                            min={1}
-                                            max={10}
-                                            value={minSpeakers}
-                                            onChange={(valueString) => setMinSpeakers(valueString)}
-                                        >
-                                            <NumberInputField />
-                                            <NumberInputStepper>
-                                                <NumberIncrementStepper />
-                                                <NumberDecrementStepper />
-                                            </NumberInputStepper>
-                                        </NumberInput>
-                                    </Box>
-                                    <Box>
-                                        <Text>Max Speakers:</Text>
-                                        <NumberInput
-                                            min={1}
-                                            max={10}
-                                            value={maxSpeakers}
-                                            onChange={(valueString) => setMaxSpeakers(valueString)}
-                                        >
-                                            <NumberInputField />
-                                            <NumberInputStepper>
-                                                <NumberIncrementStepper />
-                                                <NumberDecrementStepper />
-                                            </NumberInputStepper>
-                                        </NumberInput>
-                                    </Box>
-                                </Flex>
+                                <Divider my={2} />
+
+                                <VStack spacing={4} align="stretch">
+                                    <Flex gap={4}>
+                                        <Box flex={1}>
+                                            <Text mb={2}>Min Speakers:</Text>
+                                            <NumberInput
+                                                min={1}
+                                                max={10}
+                                                value={minSpeakers}
+                                                onChange={(valueString) => setMinSpeakers(valueString)}
+                                            >
+                                                <NumberInputField />
+                                                <NumberInputStepper>
+                                                    <NumberIncrementStepper />
+                                                    <NumberDecrementStepper />
+                                                </NumberInputStepper>
+                                            </NumberInput>
+                                        </Box>
+                                        <Box flex={1}>
+                                            <Text mb={2}>Max Speakers:</Text>
+                                            <NumberInput
+                                                min={1}
+                                                max={10}
+                                                value={maxSpeakers}
+                                                onChange={(valueString) => setMaxSpeakers(valueString)}
+                                            >
+                                                <NumberInputField />
+                                                <NumberInputStepper>
+                                                    <NumberIncrementStepper />
+                                                    <NumberDecrementStepper />
+                                                </NumberInputStepper>
+                                            </NumberInput>
+                                        </Box>
+                                        <Box flex={1}>
+                                            <Text mb={2}>Language:</Text>
+                                            <Select
+                                                value={language}
+                                                onChange={(e) => setLanguage(e.target.value)}
+                                                placeholder="Auto Detect"
+                                            >
+                                                <option value="en">English</option>
+                                                <option value="de">German</option>
+                                                <option value="gsw">Swiss German</option>
+                                            </Select>
+                                        </Box>
+                                    </Flex>
+                                </VStack>
                             </Box>
-                            <Box mt={4}>
+
+                            {/* Transcribe Button */}
+                            <Box mt={6}>
                                 <Button
                                     onClick={transcribeAudio}
                                     isLoading={isTranscribing}
                                     loadingText="Transcribing"
                                     isDisabled={isTranscribing || !interview.processed_filenames || interview.processed_filenames.length === 0}
                                     width="200px"
+                                    colorScheme="blue"
                                 >
                                     Transcribe
                                 </Button>
                             </Box>
 
+                            {/* Transcription Result */}
                             {interview.merged_transcription && (
-                                <Box mt={4}>
+                                <Box mt={6}>
                                     <Heading size="sm">Transcription Result</Heading>
-                                    <Box w="100%" maxH="300px" overflowY="auto" mt={2}>
+                                    <Divider my={2} />
+                                    <Box
+                                        w="100%"
+                                        maxH="300px"
+                                        overflowY="auto"
+                                        mt={2}
+                                        p={4}
+                                        borderWidth="1px"
+                                        borderRadius="md"
+                                        bg="gray.50"
+                                    >
                                         <Text whiteSpace="pre-wrap">
                                             {interview.merged_transcription}
                                         </Text>
