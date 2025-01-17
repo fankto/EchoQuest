@@ -3,13 +3,16 @@ import gc
 import logging
 import os
 from typing import Dict, Any, List, Optional
+
 import librosa
 import numpy as np
 import torch
-from pyannote.core import Segment, Timeline, Annotation
-from ..model_manager.manager import model_manager, settings
+from pyannote.core import Segment, Annotation
+
+from ..model_manager.manager import model_manager
 
 logger = logging.getLogger(__name__)
+
 
 class TranscriptionModule:
     def __init__(self):
@@ -45,7 +48,7 @@ class TranscriptionModule:
                 dtype=np.float32
             )
 
-            logger.info(f"Audio loaded successfully - Duration: {len(audio)/sr:.2f}s, Sample rate: {sr}Hz")
+            logger.info(f"Audio loaded successfully - Duration: {len(audio) / sr:.2f}s, Sample rate: {sr}Hz")
 
             if np.max(np.abs(audio)) < 0.001:
                 logger.warning("Audio file may be silent or very quiet")
@@ -102,7 +105,7 @@ class TranscriptionModule:
                     audio["array"],
                     return_timestamps=True,
                     chunk_length_s=30,  # Process in 30-second chunks but maintain continuity
-                    stride_length_s=5   # 5-second overlap between chunks
+                    stride_length_s=5  # 5-second overlap between chunks
                 )
 
             if not asr_result or 'chunks' not in asr_result:
