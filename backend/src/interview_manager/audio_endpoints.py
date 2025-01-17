@@ -601,3 +601,18 @@ async def update_interview_questionnaire(
     db.refresh(interview)
 
     return interview
+
+@router.put("/{interview_id}/update-transcription")
+async def update_transcription(
+        interview_id: int,
+        transcription: str = Body(...),
+        db: Session = Depends(get_db)
+):
+    interview = db.query(Interview).filter(Interview.id == interview_id).first()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+
+    interview.merged_transcription = transcription
+    db.commit()
+    db.refresh(interview)
+    return {"message": "Transcription updated successfully"}

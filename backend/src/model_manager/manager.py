@@ -258,8 +258,8 @@ class ModelManager:
     def _get_asr_model_name(self, language: Optional[str] = None) -> str:
         """Get the appropriate model name based on language"""
         if language == 'gsw':  # Swiss German
-            return self.LANGUAGE_MODEL_MAPPING['gsw']
-        return self.LANGUAGE_MODEL_MAPPING['default']
+            return 'nizarmichaud/whisper-large-v3-turbo-swissgerman'
+        return 'openai/whisper-large-v3'
 
     def get_pipeline(self, pipeline_key: str, language: Optional[str] = None) -> Optional[any]:
         """Get or create pipeline for specified key with language support"""
@@ -268,59 +268,63 @@ class ModelManager:
             if pipeline_key in ['llm_extract', 'llm_answer']:
                 return self.ollama_client
 
-            # For ASR pipeline with language support
             if pipeline_key == 'asr':
-                # Get model name based on language
                 model_name = self._get_asr_model_name(language)
                 pipeline_key = f"{pipeline_key}_{language if language else 'default'}"
 
-            # Check if pipeline exists
-            if pipeline_key not in self.pipelines:
-                if pipeline_key.startswith('asr'):
+                if pipeline_key not in self.pipelines:
                     model_config = self.model_configs.get('asr')
                     if not model_config:
                         raise ValueError(f"Unknown pipeline key: {pipeline_key}")
 
-                    # Update model name in config for specific language
-                    if language:
-                        model_config = {**model_config, 'name': self._get_asr_model_name(language)}
+                    # Update model name in config
+                    model_config = {**model_config, 'name': model_name}
 
                     model = self._load_asr(model_config)
                     if model is None:
                         raise RuntimeError(f"Failed to load model for pipeline {pipeline_key}")
 
                     processor = self.processors[model_config['name']]
+                    pipeline_kwargs = {
+                        "model": model,
+                        "tokenizer": processor.tokenizer,
+                        "feature_extractor": processor.feature_extractor,
+                        "chunk_length_s": 30,
+                        "stride_length_s": 1,
+                        "batch_size": 8,
+                        "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
+                    }
+
                     self.pipelines[pipeline_key] = pipeline(
                         "automatic-speech-recognition",
-                        model=model,
-                        tokenizer=processor.tokenizer,
-                        feature_extractor=processor.feature_extractor,
-                        torch_dtype=model_config['quantization']['torch_dtype'],
-                        batch_size=model_config['quantization']['batch_size'],
-                        return_timestamps=settings.ASR_RETURN_TIMESTAMPS
+                        **pipeline_kwargs
                     )
 
-                elif pipeline_key == 'diarization':
-                    model_config = self.model_configs.get('diarization')
-                    if not model_config:
-                        raise ValueError(f"Unknown pipeline key: diarization")
+                return self.pipelines[pipeline_key]
 
-                    logger.info("Creating diarization pipeline")
-                    auth_token = os.getenv("HF_TOKEN")
-                    if not auth_token:
-                        raise ValueError("HF_TOKEN environment variable not set")
+            elif pipeline_key == 'diarization':
+                model_config = self.model_configs.get('diarization')
+                if not model_config:
+                    raise ValueError(f"Unknown pipeline key: diarization")
 
-                    diarization_pipeline = DiarizationPipeline.from_pretrained(
-                        model_config['name'],
-                        use_auth_token=auth_token,
-                        cache_dir=os.getenv("TRANSFORMERS_CACHE")
-                    )
+                logger.info("Creating diarization pipeline")
+                auth_token = os.getenv("HF_TOKEN")
+                if not auth_token:
+                    raise ValueError("HF_TOKEN environment variable not set")
 
-                    # Move pipeline to device
-                    self.pipelines[pipeline_key] = diarization_pipeline.to(self.device)
-                    logger.info("Diarization pipeline created successfully")
+                diarization_pipeline = DiarizationPipeline.from_pretrained(
+                    model_config['name'],
+                    use_auth_token=auth_token,
+                    cache_dir=os.getenv("TRANSFORMERS_CACHE")
+                )
 
-            return self.pipelines[pipeline_key]
+                # Move pipeline to device
+                self.pipelines[pipeline_key] = diarization_pipeline.to(self.device)
+                logger.info("Diarization pipeline created successfully")
+                return self.pipelines[pipeline_key]
+
+            else:
+                raise ValueError(f"Unknown pipeline key: {pipeline_key}")
 
         except Exception as e:
             logger.error(f"Error in get_pipeline for {pipeline_key}: {str(e)}", exc_info=True)
