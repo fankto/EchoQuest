@@ -124,6 +124,14 @@ function QuestionnaireEditor() {
             const formData = new FormData();
             formData.append('title', title);
             formData.append('content', originalContent);
+            formData.append('file_type', 'manual');
+            // We need to maintain the same structure the backend expects
+            // The backend stores questions in the format { items: [...] }
+            const questionsData = {
+                items: questions
+            };
+            // Add the questions directly to the content field
+            formData.append('questions_data', JSON.stringify(questionsData));
 
             const response = await fetch('/api/questionnaires/', {
                 method: 'POST',

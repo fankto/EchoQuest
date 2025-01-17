@@ -140,6 +140,11 @@ function ViewQuestionnaire() {
             const formData = new FormData();
             formData.append('title', editedTitle);
             formData.append('content', editedContent);
+            // Include the current questions in the same format
+            const questionsData = {
+                items: questions
+            };
+            formData.append('questions_data', JSON.stringify(questionsData));
 
             const response = await fetch(`/api/questionnaires/${id}`, {
                 method: 'PUT',

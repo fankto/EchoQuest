@@ -1,5 +1,6 @@
 # backend/src/questionnaire_manager/api.py
 import io
+import json
 from typing import List
 
 import PyPDF2
@@ -27,6 +28,7 @@ async def create_questionnaire(
         title: str = Form(...),
         file: UploadFile = File(None),
         content: str = Form(None),
+        questions_data: str = Form(None),  # Add this parameter
         db: Session = Depends(get_db)
 ):
     if not file and not content:
@@ -52,8 +54,15 @@ async def create_questionnaire(
             raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
     try:
-        # Extract questions and await the result
-        extracted_questions = await question_extraction(content)
+        # If questions_data is provided, use it directly
+        if questions_data:
+            try:
+                questions = json.loads(questions_data)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid questions format")
+        else:
+            # Only extract questions if they weren't provided
+            questions = await question_extraction(content)
 
         questionnaire = schemas.QuestionnaireCreate(
             title=title,
@@ -61,13 +70,14 @@ async def create_questionnaire(
             file_type=file.filename if file else "manual"
         )
 
-        db_questionnaire = crud.create_questionnaire(db, questionnaire, extracted_questions)
+        db_questionnaire = crud.create_questionnaire(db, questionnaire, questions)
 
         if db_questionnaire.updated_at is None:
             db_questionnaire.updated_at = db_questionnaire.created_at
             db.commit()
 
         return db_questionnaire
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating questionnaire: {str(e)}")
 
@@ -102,23 +112,31 @@ async def update_questionnaire(
         questionnaire_id: int,
         title: str = Form(...),
         content: str = Form(...),
+        questions_data: str = Form(...),  # Add this parameter
         db: Session = Depends(get_db)
 ):
+    try:
+        # Parse the questions data
+        questions = json.loads(questions_data)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid questions format")
+
     db_questionnaire = crud.get_questionnaire(db, questionnaire_id=questionnaire_id)
     if db_questionnaire is None:
         raise HTTPException(status_code=404, detail="Questionnaire not found")
 
-    # Extract questions and await the result
-    extracted_questions = await question_extraction(content)
-    questions = extracted_questions['items'] if isinstance(extracted_questions, dict) else extracted_questions
-
     questionnaire_data = schemas.QuestionnaireCreate(
         title=title,
         content=content,
-        file_type="manual"  # Since we're updating manually, we'll set this to "manual"
+        file_type="manual"
     )
 
-    updated_questionnaire = crud.update_questionnaire(db, questionnaire_id, questionnaire_data, questions)
+    updated_questionnaire = crud.update_questionnaire(
+        db,
+        questionnaire_id,
+        questionnaire_data,
+        questions['items'] if isinstance(questions, dict) and 'items' in questions else questions
+    )
     return updated_questionnaire
 
 @router.delete("/{questionnaire_id}")
