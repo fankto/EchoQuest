@@ -80,10 +80,9 @@ class QuestionAnswerer:
             self.last_request_time = time.time()
             try:
                 return await self._cached_answer_question(question, context)
-            finally:
-                # Signal the model manager to unload if needed
-                # This doesn't actually unload immediately but marks it for potential unloading
-                model_manager.get_pipeline('llm_answer')
+            except Exception as e:
+                logger.error(f"Error in answering question: {str(e)}")
+                raise
 
     def unload_model(self):
         """Clean up resources"""

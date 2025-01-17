@@ -1,13 +1,36 @@
 # Use CUDA-enabled base image
 FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 
-# Set environment variables to make installation less interactive
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
-ENV POETRY_HOME=/opt/poetry
-ENV POETRY_VERSION=1.7.1
-ENV POETRY_VIRTUALENVS_CREATE=false
-ENV PATH="/opt/poetry/bin:$PATH"
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    POETRY_HOME=/opt/poetry \
+    POETRY_VERSION=1.7.1 \
+    POETRY_VIRTUALENVS_CREATE=false \
+    PATH="/opt/poetry/bin:$PATH" \
+    PYTHONPATH="/app:${PYTHONPATH}" \
+    HF_HOME=/root/.cache/huggingface \
+    TRANSFORMERS_CACHE=/root/.cache/huggingface \
+    TORCH_HOME=/root/.cache/torch \
+    XDG_CACHE_HOME=/root/.cache \
+    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024
+
+# Model configuration environment variables
+ENV MODEL_ASR_MODEL="openai/whisper-large-v3" \
+    MODEL_DIARIZATION_MODEL="pyannote/speaker-diarization-3.1" \
+    MODEL_ASR_BATCH_SIZE=1 \
+    MODEL_ASR_RETURN_TIMESTAMPS=true \
+    MODEL_TORCH_DTYPE=float16 \
+    MODEL_DEVICE_MAP=auto \
+    OLLAMA_HOST="http://ollama:11434" \
+    OLLAMA_EXTRACT_MODEL="llama3.2" \
+    OLLAMA_ANSWER_MODEL="llama3.2"
+
+# Create and set permissions for cache directories
+RUN mkdir -p /root/.cache/huggingface \
+    /root/.cache/torch \
+    /root/.cache/transformers \
+    && chmod -R 777 /root/.cache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -27,13 +50,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install poetry with curl to avoid pip timeout issues
+# Install poetry
 RUN curl -sSL https://install.python-poetry.org | python3 - --version ${POETRY_VERSION}
 
-# Copy just the poetry files first
+# Copy dependency files
 COPY pyproject.toml poetry.lock ./
 
-# Configure poetry and install dependencies with increased timeout
+# Configure poetry and install dependencies
 RUN poetry config installer.max-workers 10 && \
     poetry config installer.parallel true && \
     poetry config virtualenvs.create false && \
@@ -45,30 +68,11 @@ RUN poetry config installer.max-workers 10 && \
 # Copy the rest of the application
 COPY . .
 
-# Install the project itself
+# Install the project
 RUN poetry install --no-interaction --no-ansi
 
-# Set environment variables
-ENV PYTHONPATH="/app:${PYTHONPATH}"
-ENV HF_HOME=/root/.cache/huggingface
-ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024
-
-# Model configuration environment variables
-ENV MODEL_ASR_MODEL="openai/whisper-large-v3"
-ENV MODEL_DIARIZATION_MODEL="pyannote/speaker-diarization-3.1"
-ENV MODEL_ASR_BATCH_SIZE=4
-ENV MODEL_ASR_CHUNK_LENGTH=30
-ENV MODEL_ASR_RETURN_TIMESTAMPS=true
-ENV MODEL_TORCH_DTYPE=float16
-ENV MODEL_DEVICE_MAP=auto
-
-# Ollama configuration
-ENV OLLAMA_HOST="http://ollama:11434"
-ENV OLLAMA_EXTRACT_MODEL="llama3.2"
-ENV OLLAMA_ANSWER_MODEL="llama3.2"
-
-# Create directory for model cache
-RUN mkdir -p /root/.cache/huggingface
+# Define volumes for caching
+VOLUME [ "/root/.cache/huggingface", "/root/.cache/torch", "/root/.cache/transformers" ]
 
 EXPOSE 8000
 

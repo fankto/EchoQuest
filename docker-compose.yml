@@ -15,10 +15,15 @@ services:
       - ./backend/src/app.db:/app/src/app.db
       - ./backend/.env:/app/.env
       - model_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
+      - transformers_cache:/root/.cache/transformers
     environment:
       - PYTHONUNBUFFERED=1
       - HF_TOKEN=${HF_TOKEN}
       - TRANSFORMERS_CACHE=/root/.cache/huggingface
+      - TORCH_HOME=/root/.cache/torch
+      - HF_HOME=/root/.cache/huggingface
+      - XDG_CACHE_HOME=/root/.cache
       - OLLAMA_HOST=http://ollama:11434
     command: poetry run uvicorn src.main:app --host 0.0.0.0 --reload
     deploy:
@@ -61,4 +66,10 @@ services:
 volumes:
   node_modules:
   model_cache:
+    driver: local
+  torch_cache:
+    driver: local
+  transformers_cache:
+    driver: local
   ollama_data:
+    driver: local
