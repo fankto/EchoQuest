@@ -27,6 +27,7 @@ class Interview(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     min_speakers = Column(Integer, nullable=True)
     max_speakers = Column(Integer, nullable=True)
+    language = Column(String, nullable=True)
 
     questionnaire_id = Column(Integer, ForeignKey('questionnaires.id'))
     questionnaire = relationship("Questionnaire", back_populates="interviews")
