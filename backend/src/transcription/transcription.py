@@ -68,27 +68,7 @@ class TranscriptionModule:
             # Load audio
             audio = self.load_audio(audio_path)
 
-            # Get ASR pipeline
-            logger.info("Initializing ASR pipeline")
-            asr_pipeline = model_manager.get_pipeline('asr')
-            if not asr_pipeline:
-                raise RuntimeError("Failed to initialize ASR pipeline")
-
-            # Run ASR on full file
-            logger.info("Starting ASR processing")
-            with torch.cuda.amp.autocast():
-                asr_result = asr_pipeline(
-                    audio["array"],
-                    batch_size=settings.ASR_BATCH_SIZE,
-                    return_timestamps=True
-                )
-
-            if not asr_result or 'chunks' not in asr_result:
-                raise ValueError("ASR failed to produce valid results")
-
-            logger.info(f"ASR completed successfully")
-
-            # Get diarization pipeline
+            # Run diarization first on full file
             logger.info("Initializing diarization pipeline")
             diarization_pipeline = model_manager.get_pipeline('diarization')
             if not diarization_pipeline:
@@ -100,13 +80,35 @@ class TranscriptionModule:
                 diarization_result = diarization_pipeline(
                     audio_path,
                     min_speakers=min_speakers,
-                    max_speakers=max_speakers
+                    max_speakers=max_speakers,
+                    num_speakers=None  # Let the model determine speaker count if not specified
                 )
 
             if not isinstance(diarization_result, Annotation):
                 raise ValueError("Diarization failed to produce valid results")
 
             logger.info("Diarization completed successfully")
+
+            # Get ASR pipeline
+            logger.info("Initializing ASR pipeline")
+            asr_pipeline = model_manager.get_pipeline('asr')
+            if not asr_pipeline:
+                raise RuntimeError("Failed to initialize ASR pipeline")
+
+            # Run ASR on full file
+            logger.info("Starting ASR processing")
+            with torch.cuda.amp.autocast():
+                asr_result = asr_pipeline(
+                    audio["array"],
+                    return_timestamps=True,
+                    chunk_length_s=30,  # Process in 30-second chunks but maintain continuity
+                    stride_length_s=5   # 5-second overlap between chunks
+                )
+
+            if not asr_result or 'chunks' not in asr_result:
+                raise ValueError("ASR failed to produce valid results")
+
+            logger.info(f"ASR completed successfully")
 
             # Process and merge results
             logger.info("Processing and merging results")
@@ -129,60 +131,47 @@ class TranscriptionModule:
         try:
             processed_segments = []
 
-            # Create timeline from diarization result
-            diarization_timeline = Timeline([
-                segment for segment, _, _ in diarization_result.itertracks(yield_label=True)
-            ])
-
             # Process each ASR chunk
             for chunk in asr_result['chunks']:
-                # Validate timestamp
                 if not isinstance(chunk.get('timestamp'), (list, tuple)):
-                    logger.warning(f"Invalid timestamp format in chunk: {chunk}")
                     continue
 
                 start, end = chunk['timestamp']
-
-                # Skip invalid timestamps
-                if start is None or end is None or end <= 0 or start >= end:
-                    logger.warning(f"Invalid timestamp values: start={start}, end={end}")
+                if not (isinstance(start, (int, float)) and isinstance(end, (int, float)) and end > 0 and start < end):
                     continue
 
-                try:
-                    # Create segment for current chunk
-                    current_segment = Segment(start, end)
+                # Create segment for current chunk
+                current_segment = Segment(start, end)
 
-                    # Find overlapping speaker segments
-                    overlapping = diarization_result.crop(current_segment)
+                # Find overlapping speaker segments using overlap()
+                overlapping_segments = []
+                for segment, _, speaker_label in diarization_result.itertracks(yield_label=True):
+                    if segment.start <= end and segment.end >= start:
+                        overlap_start = max(segment.start, start)
+                        overlap_end = min(segment.end, end)
+                        if overlap_end > overlap_start:
+                            overlapping_segments.append({
+                                'speaker': speaker_label,
+                                'duration': overlap_end - overlap_start
+                            })
 
-                    # Determine dominant speaker
-                    if not overlapping:
-                        speaker = "UNKNOWN"
-                    else:
-                        speaker_durations = {}
-                        for segment, track, speaker_label in overlapping.itertracks(yield_label=True):
-                            duration = segment.duration
-                            if duration > 0:  # Only count positive durations
-                                speaker_durations[speaker_label] = speaker_durations.get(speaker_label, 0) + duration
+                # Determine dominant speaker
+                if not overlapping_segments:
+                    speaker = "UNKNOWN"
+                else:
+                    # Sort by duration of overlap
+                    overlapping_segments.sort(key=lambda x: x['duration'], reverse=True)
+                    speaker = overlapping_segments[0]['speaker']
 
-                        if speaker_durations:
-                            speaker = max(speaker_durations.items(), key=lambda x: x[1])[0]
-                        else:
-                            speaker = "UNKNOWN"
-
-                    # Add processed segment
-                    text = chunk['text'].strip()
-                    if text:  # Only add segments that have text
-                        processed_segments.append({
-                            "text": text,
-                            "start": float(start),
-                            "end": float(end),
-                            "speaker": speaker
-                        })
-
-                except Exception as segment_error:
-                    logger.warning(f"Error processing segment: {str(segment_error)}")
-                    continue
+                # Add processed segment
+                text = chunk['text'].strip()
+                if text:  # Only add segments that have text
+                    processed_segments.append({
+                        "text": text,
+                        "start": float(start),
+                        "end": float(end),
+                        "speaker": speaker
+                    })
 
             # Sort segments by start time
             processed_segments.sort(key=lambda x: x['start'])
@@ -196,7 +185,7 @@ class TranscriptionModule:
             logger.error(f"Error in _process_results: {str(e)}", exc_info=True)
             raise
 
-    def _merge_segments(self, segments: List[Dict[str, Any]], max_gap: float = 1.0) -> List[Dict[str, Any]]:
+    def _merge_segments(self, segments: List[Dict[str, Any]], max_gap: float = 0.5) -> List[Dict[str, Any]]:
         """Merge consecutive segments from the same speaker with small gaps"""
         if not segments:
             return []
@@ -205,22 +194,27 @@ class TranscriptionModule:
         current = segments[0].copy()
 
         for next_segment in segments[1:]:
+            gap = next_segment["start"] - current["end"]
+
             # Check if segments should be merged
-            if (current["speaker"] == next_segment["speaker"] and
-                    next_segment["start"] - current["end"] <= max_gap):
-                # Merge segments
+            if (current["speaker"] == next_segment["speaker"] and gap <= max_gap):
+                # Merge segments while preserving timing
                 current["text"] += " " + next_segment["text"]
                 current["end"] = next_segment["end"]
+                current["duration"] = current["end"] - current["start"]
             else:
                 # Start new segment
                 merged.append(current)
                 current = next_segment.copy()
 
         merged.append(current)
+
+        # Final sort by start time to ensure order
+        merged.sort(key=lambda x: x['start'])
         return merged
 
     def format_as_transcription(self, segments: List[Dict[str, Any]]) -> str:
-        """Format segments into a readable transcription"""
+        """Format segments into a readable transcription with timestamps"""
         if not segments:
             return ""
 
@@ -228,9 +222,12 @@ class TranscriptionModule:
         current_speaker = None
 
         for segment in segments:
+            timestamp = f"[{segment['start']:.1f}s - {segment['end']:.1f}s]"
             if segment["speaker"] != current_speaker:
-                formatted_text.append(f"\n[{segment['speaker']}]")
+                formatted_text.append(f"\n[{segment['speaker']}] {timestamp}")
                 current_speaker = segment["speaker"]
+            else:
+                formatted_text.append(timestamp)
             formatted_text.append(segment["text"])
 
         return " ".join(formatted_text).strip()
