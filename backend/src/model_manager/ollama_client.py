@@ -40,7 +40,7 @@ class OllamaClient:
                 "model": model,
                 "prompt": prompt,
                 "stream": False,
-                "keep_alive": 0  # Model will automatically unload after request
+                "keep_alive": 5  # Model will automatically unload after request
             }
             if system:
                 data["system"] = system

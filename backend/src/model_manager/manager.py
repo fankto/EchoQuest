@@ -99,10 +99,6 @@ class ModelManager:
                 'name': settings.DIARIZATION_MODEL,
                 'type': 'diarization',
                 'requires_auth': True,
-                'params': {
-                    'min_speakers': settings.DIARIZATION_MIN_SPEAKERS,
-                    'max_speakers': settings.DIARIZATION_MAX_SPEAKERS
-                }
             }
         }
 
@@ -221,10 +217,6 @@ class ModelManager:
             # Move to device and apply settings
             pipeline = pipeline.to(self.device)
 
-            # Configure pipeline parameters
-            pipeline.min_speakers = config['params']['min_speakers']
-            pipeline.max_speakers = config['params']['max_speakers']
-
             logger.info("Diarization pipeline created and configured successfully")
             return pipeline
 
@@ -259,37 +251,50 @@ class ModelManager:
             logger.error(f"Error in get_model for {model_key}: {str(e)}", exc_info=True)
             raise
 
-    def get_pipeline(self, pipeline_key: str) -> Optional[any]:
-        """Get or create pipeline for specified key"""
+    def get_pipeline(self, pipeline_key: str, config: Optional[Dict] = None) -> Optional[any]:
+        """Get or create pipeline for specified key with optional runtime config"""
         logger.info(f"Getting pipeline for key: {pipeline_key}")
         try:
             if pipeline_key in ['llm_extract', 'llm_answer']:
                 return self.ollama_client
 
             if pipeline_key not in self.pipelines:
-                config = self.model_configs.get(pipeline_key)
-                if not config:
+                model_config = self.model_configs.get(pipeline_key)
+                if not model_config:
                     raise ValueError(f"Unknown pipeline key: {pipeline_key}")
 
                 model = self.get_model(pipeline_key)
                 if model is None:
                     raise RuntimeError(f"Failed to load model for pipeline {pipeline_key}")
 
-                if config['type'] == 'asr':
-                    processor = self.processors[config['name']]
+                if model_config['type'] == 'asr':
+                    processor = self.processors[model_config['name']]
                     self.pipelines[pipeline_key] = pipeline(
                         "automatic-speech-recognition",
                         model=model,
                         tokenizer=processor.tokenizer,
                         feature_extractor=processor.feature_extractor,
-                        torch_dtype=config['quantization']['torch_dtype'],
-                        batch_size=config['quantization']['batch_size'],
+                        torch_dtype=model_config['quantization']['torch_dtype'],
+                        batch_size=model_config['quantization']['batch_size'],
                         return_timestamps=settings.ASR_RETURN_TIMESTAMPS
                     )
-                elif config['type'] == 'diarization':
-                    self.pipelines[pipeline_key] = model
+                elif model_config['type'] == 'diarization':
+                    # For diarization, create new pipeline instance
+                    hf_token = os.getenv('HF_TOKEN')
+                    if not hf_token:
+                        raise ValueError("HF_TOKEN is required but not set")
+
+                    diarization_pipeline = DiarizationPipeline.from_pretrained(
+                        model_config['name'],
+                        use_auth_token=hf_token,
+                        cache_dir=os.getenv("TRANSFORMERS_CACHE")
+                    )
+
+                    # Move pipeline to device
+                    self.pipelines[pipeline_key] = diarization_pipeline.to(self.device)
 
             return self.pipelines[pipeline_key]
+
         except Exception as e:
             logger.error(f"Error in get_pipeline for {pipeline_key}: {str(e)}", exc_info=True)
             raise
