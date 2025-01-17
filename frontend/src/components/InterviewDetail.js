@@ -1,62 +1,125 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Box, VStack, Heading, Text, Button, Progress, useToast, List, ListItem, IconButton, NumberInput, NumberInputField, NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper, Flex, Select } from '@chakra-ui/react';
-import { DeleteIcon } from '@chakra-ui/icons';
-import { FaPlay, FaPause } from 'react-icons/fa'
-import { useParams } from 'react-router-dom';
+import React, {useCallback, useEffect, useState, useRef} from 'react';
 import {
     Accordion,
-    AccordionItem,
     AccordionButton,
-    AccordionPanel,
     AccordionIcon,
-    Divider
+    AccordionItem,
+    AccordionPanel,
+    Box,
+    Button,
+    Divider,
+    Flex,
+    Heading,
+    IconButton,
+    List,
+    ListItem,
+    NumberDecrementStepper,
+    NumberIncrementStepper,
+    NumberInput,
+    NumberInputField,
+    NumberInputStepper,
+    Progress,
+    Select,
+    Text,
+    useToast,
+    VStack,
+    Textarea,
+    Slider
 } from '@chakra-ui/react';
+import {DeleteIcon} from '@chakra-ui/icons';
+import {FaPause, FaPlay} from 'react-icons/fa'
+import {useParams} from 'react-router-dom';
 
-function AudioPlayer({ filename }) {
-    const [audio] = useState(new Audio(`/api/interviews/audio/${filename}`));
+const AudioPlayer = ({filename}) => {
+    const audioRef = useRef(null);
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        audio.addEventListener('loadedmetadata', () => setDuration(audio.duration));
-        audio.addEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
-        return () => {
-            audio.removeEventListener('loadedmetadata', () => setDuration(audio.duration));
-            audio.removeEventListener('timeupdate', () => setCurrentTime(audio.currentTime));
+        const audio = new Audio();
+        audio.preload = "metadata"; // Only load metadata initially
+        audio.src = `/api/interviews/audio/${filename}`;
+        audioRef.current = audio;
+
+        const handleLoadedMetadata = () => {
+            setDuration(audio.duration);
+            setIsLoading(false);
         };
-    }, [audio]);
+
+        const handleTimeUpdate = () => {
+            setCurrentTime(audio.currentTime);
+        };
+
+        const handleEnded = () => {
+            setPlaying(false);
+        };
+
+        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('ended', handleEnded);
+
+        return () => {
+            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            audio.removeEventListener('timeupdate', handleTimeUpdate);
+            audio.removeEventListener('ended', handleEnded);
+            audio.pause();
+            audio.src = '';
+        };
+    }, [filename]);
 
     const togglePlayPause = () => {
-        if (playing) {
-            audio.pause();
-        } else {
-            audio.play();
+        if (audioRef.current) {
+            if (playing) {
+                audioRef.current.pause();
+            } else {
+                audioRef.current.play();
+            }
+            setPlaying(!playing);
         }
-        setPlaying(!playing);
     };
 
-    const handleSliderChange = (event) => {
-        const time = parseFloat(event.target.value);
-        audio.currentTime = time;
-        setCurrentTime(time);
+    const handleSliderChange = (value) => {
+        if (audioRef.current) {
+            audioRef.current.currentTime = value;
+            setCurrentTime(value);
+        }
+    };
+
+    const formatTime = (time) => {
+        const minutes = Math.floor(time / 60);
+        const seconds = Math.floor(time % 60);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
     return (
-        <Box>
-            <Text>{filename}</Text>
-            <IconButton icon={playing ? <FaPause /> : <FaPlay />} onClick={togglePlayPause} />
-            <input
-                type="range"
-                min={0}
-                max={duration}
-                value={currentTime}
-                onChange={handleSliderChange}
-            />
-            <Text>{formatTime(currentTime)} / {formatTime(duration)}</Text>
+        <Box width="100%">
+            <Text mb={2}>{filename}</Text>
+            <Box display="flex" alignItems="center" gap={4}>
+                <IconButton
+                    icon={playing ? <FaPause/> : <FaPlay/>}
+                    onClick={togglePlayPause}
+                    isDisabled={isLoading}
+                    aria-label={playing ? "Pause" : "Play"}
+                />
+                <Slider
+                    min={0}
+                    max={duration}
+                    value={currentTime}
+                    onChange={handleSliderChange}
+                    width="100%"
+                    isDisabled={isLoading}
+                >
+                </Slider>
+                <Text fontSize="sm" width="100px" textAlign="right">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                </Text>
+            </Box>
+            {isLoading && <Progress size="xs" isIndeterminate mt={2}/>}
         </Box>
     );
-}
+};
 
 const TranscriptionSettings = ({
                                    minSpeakers,
@@ -67,10 +130,10 @@ const TranscriptionSettings = ({
                                    setLanguage
                                }) => {
     const languageOptions = [
-        { value: '', label: 'Auto Detect' },
-        { value: 'en', label: 'English' },
-        { value: 'de', label: 'German' },
-        { value: 'gsw', label: 'Swiss German' }
+        {value: '', label: 'Auto Detect'},
+        {value: 'en', label: 'English'},
+        {value: 'de', label: 'German'},
+        {value: 'gsw', label: 'Swiss German'}
     ];
 
     return (
@@ -85,10 +148,10 @@ const TranscriptionSettings = ({
                         value={minSpeakers}
                         onChange={(value) => setMinSpeakers(value)}
                     >
-                        <NumberInputField />
+                        <NumberInputField/>
                         <NumberInputStepper>
-                            <NumberIncrementStepper />
-                            <NumberDecrementStepper />
+                            <NumberIncrementStepper/>
+                            <NumberDecrementStepper/>
                         </NumberInputStepper>
                     </NumberInput>
                 </Box>
@@ -100,10 +163,10 @@ const TranscriptionSettings = ({
                         value={maxSpeakers}
                         onChange={(value) => setMaxSpeakers(value)}
                     >
-                        <NumberInputField />
+                        <NumberInputField/>
                         <NumberInputStepper>
-                            <NumberIncrementStepper />
-                            <NumberDecrementStepper />
+                            <NumberIncrementStepper/>
+                            <NumberDecrementStepper/>
                         </NumberInputStepper>
                     </NumberInput>
                 </Box>
@@ -126,6 +189,78 @@ const TranscriptionSettings = ({
     );
 };
 
+const EditableTranscript = ({ transcription, interviewId, onTranscriptionUpdate }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedTranscription, setEditedTranscription] = useState(transcription);
+    const toast = useToast();
+
+    const handleSave = async () => {
+        try {
+            const response = await fetch(`/api/interviews/${interviewId}/update-transcription`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ transcription: editedTranscription }),
+            });
+
+            if (!response.ok) throw new Error('Failed to update transcription');
+
+            onTranscriptionUpdate(editedTranscription);
+            setIsEditing(false);
+            toast({
+                title: 'Success',
+                description: 'Transcription updated successfully',
+                status: 'success',
+                duration: 3000,
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: error.message,
+                status: 'error',
+                duration: 3000,
+            });
+        }
+    };
+
+    return (
+        <Box>
+            {isEditing ? (
+                <>
+                    <Textarea
+                        value={editedTranscription}
+                        onChange={(e) => setEditedTranscription(e.target.value)}
+                        height="300px"
+                        mb={4}
+                    />
+                    <Button onClick={handleSave} colorScheme="blue" mr={2}>
+                        Save
+                    </Button>
+                    <Button onClick={() => setIsEditing(false)}>
+                        Cancel
+                    </Button>
+                </>
+            ) : (
+                <>
+                    <Box
+                        whiteSpace="pre-wrap"
+                        p={4}
+                        borderWidth="1px"
+                        borderRadius="md"
+                        mb={4}
+                    >
+                        {transcription}
+                    </Box>
+                    <Button onClick={() => setIsEditing(true)} colorScheme="blue">
+                        Edit Transcription
+                    </Button>
+                </>
+            )}
+        </Box>
+    );
+};
+
 function formatTime(time) {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
@@ -133,7 +268,7 @@ function formatTime(time) {
 }
 
 function InterviewDetail() {
-    const { id } = useParams();
+    const {id} = useParams();
     const [interview, setInterview] = useState(null);
     const [newAudioFile, setNewAudioFile] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -217,7 +352,7 @@ function InterviewDetail() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ questionnaire_id: newQuestionnaireId }),
+                body: JSON.stringify({questionnaire_id: newQuestionnaireId}),
             });
 
             if (response.ok) {
@@ -289,7 +424,7 @@ function InterviewDetail() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ filename }),
+                body: JSON.stringify({filename}),
             });
             if (response.ok) {
                 toast({
@@ -317,7 +452,7 @@ function InterviewDetail() {
     const processAudio = async () => {
         setIsProcessing(true);
         try {
-            const response = await fetch(`/api/interviews/process/${id}`, { method: 'POST' });
+            const response = await fetch(`/api/interviews/process/${id}`, {method: 'POST'});
             if (response.ok) {
                 toast({
                     title: "Success",
@@ -361,7 +496,7 @@ function InterviewDetail() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ filename }),
+                body: JSON.stringify({filename}),
             });
             if (response.ok) {
                 toast({
@@ -582,16 +717,17 @@ function InterviewDetail() {
                             <Box flex="1" textAlign="left">
                                 <Heading size="md">Audio Files</Heading>
                             </Box>
-                            <AccordionIcon />
+                            <AccordionIcon/>
                         </AccordionButton>
                         <AccordionPanel pb={4}>
                             {interview.original_filenames && interview.original_filenames.length > 0 ? (
                                 <List spacing={3}>
                                     {interview.original_filenames.map((filename, index) => (
-                                        <ListItem key={index} display="flex" justifyContent="space-between" alignItems="center">
-                                            <AudioPlayer filename={filename} />
+                                        <ListItem key={index} display="flex" justifyContent="space-between"
+                                                  alignItems="center">
+                                            <AudioPlayer filename={filename}/>
                                             <IconButton
-                                                icon={<DeleteIcon />}
+                                                icon={<DeleteIcon/>}
                                                 onClick={() => removeAudioFile(filename)}
                                                 aria-label="Remove file"
                                             />
@@ -601,7 +737,8 @@ function InterviewDetail() {
                             ) : (
                                 <Text>No audio files uploaded yet.</Text>
                             )}
-                            <input type="file" onChange={handleFileChange} accept="audio/*" style={{ marginTop: '10px' }} />
+                            <input type="file" onChange={handleFileChange} accept="audio/*"
+                                   style={{marginTop: '10px'}}/>
                             <Button onClick={addAudioFile} isDisabled={!newAudioFile} mt={2}>
                                 Add Audio File
                             </Button>
@@ -613,16 +750,17 @@ function InterviewDetail() {
                             <Box flex="1" textAlign="left">
                                 <Heading size="md">Processed Audio Files</Heading>
                             </Box>
-                            <AccordionIcon />
+                            <AccordionIcon/>
                         </AccordionButton>
                         <AccordionPanel pb={4}>
                             {interview.processed_filenames && interview.processed_filenames.length > 0 ? (
                                 <List spacing={3}>
                                     {interview.processed_filenames.map((filename, index) => (
-                                        <ListItem key={index} display="flex" justifyContent="space-between" alignItems="center">
-                                            <AudioPlayer filename={filename} />
+                                        <ListItem key={index} display="flex" justifyContent="space-between"
+                                                  alignItems="center">
+                                            <AudioPlayer filename={filename}/>
                                             <IconButton
-                                                icon={<DeleteIcon />}
+                                                icon={<DeleteIcon/>}
                                                 onClick={() => removeProcessedAudioFile(filename)}
                                                 aria-label="Remove processed file"
                                             />
@@ -651,13 +789,13 @@ function InterviewDetail() {
                             <Box flex="1" textAlign="left">
                                 <Heading size="md">Transcription</Heading>
                             </Box>
-                            <AccordionIcon />
+                            <AccordionIcon/>
                         </AccordionButton>
                         <AccordionPanel pb={4}>
                             {/* Transcription Settings */}
                             <Box mt={4}>
                                 <Heading size="sm">Transcription Settings</Heading>
-                                <Divider my={2} />
+                                <Divider my={2}/>
 
                                 <VStack spacing={4} align="stretch">
                                     <Flex gap={4}>
@@ -669,10 +807,10 @@ function InterviewDetail() {
                                                 value={minSpeakers}
                                                 onChange={(valueString) => setMinSpeakers(valueString)}
                                             >
-                                                <NumberInputField />
+                                                <NumberInputField/>
                                                 <NumberInputStepper>
-                                                    <NumberIncrementStepper />
-                                                    <NumberDecrementStepper />
+                                                    <NumberIncrementStepper/>
+                                                    <NumberDecrementStepper/>
                                                 </NumberInputStepper>
                                             </NumberInput>
                                         </Box>
@@ -684,10 +822,10 @@ function InterviewDetail() {
                                                 value={maxSpeakers}
                                                 onChange={(valueString) => setMaxSpeakers(valueString)}
                                             >
-                                                <NumberInputField />
+                                                <NumberInputField/>
                                                 <NumberInputStepper>
-                                                    <NumberIncrementStepper />
-                                                    <NumberDecrementStepper />
+                                                    <NumberIncrementStepper/>
+                                                    <NumberDecrementStepper/>
                                                 </NumberInputStepper>
                                             </NumberInput>
                                         </Box>
@@ -726,20 +864,16 @@ function InterviewDetail() {
                                 <Box mt={6}>
                                     <Heading size="sm">Transcription Result</Heading>
                                     <Divider my={2} />
-                                    <Box
-                                        w="100%"
-                                        maxH="300px"
-                                        overflowY="auto"
-                                        mt={2}
-                                        p={4}
-                                        borderWidth="1px"
-                                        borderRadius="md"
-                                        bg="gray.50"
-                                    >
-                                        <Text whiteSpace="pre-wrap">
-                                            {interview.merged_transcription}
-                                        </Text>
-                                    </Box>
+                                    <EditableTranscript
+                                        transcription={interview.merged_transcription}
+                                        interviewId={id}
+                                        onTranscriptionUpdate={(newTranscription) => {
+                                            setInterview({
+                                                ...interview,
+                                                merged_transcription: newTranscription
+                                            });
+                                        }}
+                                    />
                                 </Box>
                             )}
                         </AccordionPanel>
@@ -750,7 +884,7 @@ function InterviewDetail() {
                             <Box flex="1" textAlign="left">
                                 <Heading size="md">Generated Answers</Heading>
                             </Box>
-                            <AccordionIcon />
+                            <AccordionIcon/>
                         </AccordionButton>
                         <AccordionPanel pb={4}>
                             <Box mt={4}>
@@ -767,7 +901,7 @@ function InterviewDetail() {
                             {answerProgress > 0 && (
                                 <Box mb={4}>
                                     <Text>Answer Generation Progress:</Text>
-                                    <Progress value={answerProgress} />
+                                    <Progress value={answerProgress}/>
                                 </Box>
                             )}
                             {interview.generated_answers && Object.entries(interview.generated_answers).length > 0 && (

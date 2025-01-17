@@ -60,8 +60,8 @@ class AudioProcessor:
             # Calculate file duration in seconds
             duration = waveform.shape[-1] / original_sample_rate
 
-            # Force chunked processing for files longer than 30 seconds
-            if duration > 30:
+            # Force chunked processing for files longer than 60 seconds
+            if duration > 60:
                 logger.info(f"Large file detected ({duration:.1f} seconds), using chunked processing")
                 return self.chunk_processor.process_chunked(waveform, original_sample_rate)
             else:

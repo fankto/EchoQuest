@@ -8,6 +8,7 @@ import librosa
 import numpy as np
 import torch
 from pyannote.core import Segment, Annotation
+import torchaudio
 
 from ..model_manager.manager import model_manager
 
@@ -37,28 +38,18 @@ class TranscriptionModule:
                 raise
 
     def load_audio(self, audio_path: str) -> Dict[str, Any]:
-        """Load audio with optimal settings"""
-        logger.info(f"Loading audio from: {audio_path}")
+        """Load audio without resampling"""
         try:
-            if not os.path.exists(audio_path):
-                raise FileNotFoundError(f"Audio file not found: {audio_path}")
+            waveform, sample_rate = torchaudio.load(audio_path)
 
-            file_size = os.path.getsize(audio_path) / (1024 * 1024)
-            logger.info(f"Audio file size: {file_size:.2f} MB")
+            # Convert to mono if stereo
+            if waveform.shape[0] > 1:
+                waveform = torch.mean(waveform, dim=0, keepdim=True)
 
-            audio, sr = librosa.load(
-                audio_path,
-                sr=16000,
-                mono=True,
-                dtype=np.float32
-            )
-
-            logger.info(f"Audio loaded successfully - Duration: {len(audio) / sr:.2f}s, Sample rate: {sr}Hz")
-
-            if np.max(np.abs(audio)) < 0.001:
-                logger.warning("Audio file may be silent or very quiet")
-
-            return {"array": audio, "sampling_rate": sr}
+            return {
+                "array": waveform.numpy().squeeze(),
+                "sampling_rate": sample_rate
+            }
         except Exception as e:
             logger.error(f"Error loading audio: {str(e)}", exc_info=True)
             raise
@@ -77,7 +68,7 @@ class TranscriptionModule:
             # Load audio
             audio = self.load_audio(audio_path)
 
-            # Run diarization on FULL audio file
+            # Run diarization
             logger.info("Starting diarization")
             diarization_pipeline = model_manager.get_pipeline('diarization')
             with torch.amp.autocast('cuda'):
@@ -90,34 +81,40 @@ class TranscriptionModule:
 
             logger.info("Diarization completed successfully")
 
-            # Get appropriate ASR model based on language
+            # Get ASR pipeline
             logger.info("Starting ASR processing")
             asr_pipeline = model_manager.get_pipeline('asr', language=language)
 
-            # Set generate kwargs based on the model
+            # Configure generation parameters based on language
             generate_kwargs = {
-                "task": "transcribe",
+                "max_new_tokens": 445,  # Reduced to account for special tokens
+                "num_beams": 1,
+                "condition_on_prev_tokens": False,
+                "compression_ratio_threshold": 1.35,
+                "temperature": (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+                "logprob_threshold": -1.0,
+                "no_speech_threshold": 0.6,
+                "return_timestamps": True,
             }
 
-            # Only add language parameter if we're not using the Swiss German model
-            if language != 'gsw':
+            # Only add language parameter if not Swiss German
+            if language and language != 'gsw':
                 generate_kwargs["language"] = language
+                generate_kwargs["task"] = "transcribe"
 
             with torch.amp.autocast('cuda'):
                 asr_result = asr_pipeline(
                     audio["array"],
                     return_timestamps=True,
-                    chunk_length_s=300,     # 5-minute chunks
-                    stride_length_s=15,      # 15-second overlap
-                    batch_size=1,
+                    chunk_length_s=30,
+                    stride_length_s=1,
+                    batch_size=8,
                     generate_kwargs=generate_kwargs
                 )
 
             logger.info("ASR completed successfully")
 
-            # Process and merge results
             processed_segments = self._process_results(asr_result, diarization_result)
-
             return processed_segments
 
         except Exception as e:
