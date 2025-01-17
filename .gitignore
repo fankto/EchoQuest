@@ -6,3 +6,4 @@
 /backend/src/audio_processor/uploads/
 .idea/
 /backend/app.db
+backend/.env
