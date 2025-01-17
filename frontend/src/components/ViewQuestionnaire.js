@@ -87,10 +87,9 @@ function ViewQuestionnaire() {
         setIsExtracting(true);
         try {
             const formData = new FormData();
-            formData.append('title', editedTitle);
             formData.append('content', editedContent);
 
-            const response = await fetch('/api/questionnaires/', {
+            const response = await fetch('/api/questionnaires/extract', {
                 method: 'POST',
                 body: formData,
             });
@@ -100,6 +99,7 @@ function ViewQuestionnaire() {
             }
 
             const data = await response.json();
+            // Extract questions from the response and update state
             const extractedQuestions = data.questions?.items || data.questions || [];
             setQuestions(extractedQuestions);
 

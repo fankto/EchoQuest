@@ -1,4 +1,5 @@
 # backend/src/questionnaire_manager/api.py
+import datetime
 import io
 import json
 from typing import List
@@ -28,16 +29,17 @@ async def create_questionnaire(
         title: str = Form(...),
         file: UploadFile = File(None),
         content: str = Form(None),
-        questions_data: str = Form(None),  # Add this parameter
+        questions_data: str = Form(None),
         db: Session = Depends(get_db)
 ):
+    # Check required inputs
     if not file and not content:
         raise HTTPException(status_code=400, detail="Either file or content must be provided")
 
+    # Process file if provided
     if file:
         file_content = await file.read()
         file_type = file.filename.split(".")[-1].lower()
-
         try:
             if file_type == "docx":
                 content = docx2txt.process(io.BytesIO(file_content))
@@ -54,22 +56,36 @@ async def create_questionnaire(
             raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
     try:
-        # If questions_data is provided, use it directly
+        # Determine if this is a question extraction request or a save request
         if questions_data:
+            # This is a save request - parse the provided questions
             try:
                 questions = json.loads(questions_data)
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Invalid questions format")
         else:
-            # Only extract questions if they weren't provided
+            # This is an extraction request - extract questions but don't save
             questions = await question_extraction(content)
+            # Create a temporary questionnaire object for response
+            return schemas.Questionnaire(
+                id=-1,
+                title=title,
+                content=content,
+                file_type="extraction",
+                questions=questions,
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now(),
+                interviews=[]
+            )
 
+        # Create the actual questionnaire only for save requests
         questionnaire = schemas.QuestionnaireCreate(
             title=title,
             content=content,
             file_type=file.filename if file else "manual"
         )
 
+        # Save to database
         db_questionnaire = crud.create_questionnaire(db, questionnaire, questions)
 
         if db_questionnaire.updated_at is None:
@@ -80,6 +96,19 @@ async def create_questionnaire(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating questionnaire: {str(e)}")
+
+@router.post("/extract", response_model=dict)
+async def extract_questions_only(
+        content: str = Form(...),
+):
+    """
+    Endpoint just for extracting questions without creating a questionnaire
+    """
+    try:
+        questions = await question_extraction(content)
+        return {"questions": questions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error extracting questions: {str(e)}")
 
 @router.get("/", response_model=List[schemas.Questionnaire])
 def read_questionnaires(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
