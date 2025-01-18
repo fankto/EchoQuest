@@ -51,7 +51,7 @@ class ChunkProcessor:
     def __init__(self, processor):
         self.processor = processor
         self.chunk_duration = 900  # seconds
-        self.overlap_duration = 1  # seconds
+        self.overlap_duration = 5  # seconds
 
         # STFT parameters
         self.n_fft = 2048
