@@ -22,6 +22,7 @@ from starlette.responses import FileResponse
 from .models import Interview, InterviewMetadata
 from ..audio_processor.audio_processing_pipeline import AudioProcessingPipeline
 from ..audio_processor.config import settings as audio_settings
+from ..audio_transcription.models import TranscriptionUpdate
 from ..database import get_db
 from ..question_answerer.question_answerer import question_answerer
 from ..questionnaire_manager import crud as questionnaire_crud
@@ -605,14 +606,14 @@ async def update_interview_questionnaire(
 @router.put("/{interview_id}/update-transcription")
 async def update_transcription(
         interview_id: int,
-        transcription: str = Body(...),
+        update: TranscriptionUpdate,
         db: Session = Depends(get_db)
 ):
     interview = db.query(Interview).filter(Interview.id == interview_id).first()
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
 
-    interview.merged_transcription = transcription
+    interview.merged_transcription = update.transcription
     db.commit()
     db.refresh(interview)
     return {"message": "Transcription updated successfully"}
