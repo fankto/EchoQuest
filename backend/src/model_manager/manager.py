@@ -290,8 +290,8 @@ class ModelManager:
                         "tokenizer": processor.tokenizer,
                         "feature_extractor": processor.feature_extractor,
                         "chunk_length_s": 30,
-                        "stride_length_s": 1,
-                        "batch_size": 8,
+                        "stride_length_s": 2,
+                        "batch_size": 4,
                         "torch_dtype": torch.float16 if torch.cuda.is_available() else torch.float32,
                     }
 
@@ -335,21 +335,78 @@ class ModelManager:
         logger.info(f"Unloading model: {model_key}")
         try:
             if model_key not in ['llm_extract', 'llm_answer']:
+                # Clear from models dict
                 if model_key in self.models:
-                    if hasattr(self.models[model_key], 'cpu'):
-                        self.models[model_key].cpu()
+                    model = self.models[model_key]
+                    if hasattr(model, 'cpu'):
+                        model.cpu()
                     del self.models[model_key]
 
+                # Clear from pipelines dict
                 if model_key in self.pipelines:
-                    if hasattr(self.pipelines[model_key], 'cpu'):
-                        self.pipelines[model_key].cpu()
+                    pipeline = self.pipelines[model_key]
+                    if hasattr(pipeline, 'cpu'):
+                        pipeline.cpu()
                     del self.pipelines[model_key]
 
-                self._clear_gpu_memory()
+                # Clear from processors dict
+                if model_key in self.processors:
+                    processor = self.processors[model_key]
+                    if hasattr(processor, 'cpu'):
+                        processor.cpu()
+                    del self.processors[model_key]
 
-            logger.info(f"Successfully unloaded model: {model_key}")
+                # Force garbage collection
+                gc.collect()
+
+                # Clear CUDA memory if available
+                if torch.cuda.is_available():
+                    with torch.cuda.device('cuda'):
+                        torch.cuda.empty_cache()
+                        torch.cuda.ipc_collect()
+                    torch.cuda.reset_peak_memory_stats()
+
+                logger.info(f"Successfully unloaded model: {model_key}")
+
+                # Log current memory state
+                if torch.cuda.is_available():
+                    memory_allocated = torch.cuda.memory_allocated() / 1024 ** 2
+                    memory_reserved = torch.cuda.memory_reserved() / 1024 ** 2
+                    logger.info(f"Current CUDA memory allocated: {memory_allocated:.2f} MB")
+                    logger.info(f"Current CUDA memory reserved: {memory_reserved:.2f} MB")
+
         except Exception as e:
             logger.error(f"Error unloading model {model_key}: {str(e)}")
+            raise
+
+    def _clear_gpu_memory(self):
+        """Clear GPU memory and cache"""
+        try:
+            # Force garbage collection first
+            gc.collect()
+
+            if torch.cuda.is_available():
+                # Synchronize all CUDA streams
+                torch.cuda.synchronize()
+
+                # Clear the cache for all devices
+                with torch.cuda.device('cuda'):
+                    torch.cuda.empty_cache()
+                    torch.cuda.ipc_collect()
+
+                # Reset peak stats
+                torch.cuda.reset_peak_memory_stats()
+
+                # Reset max memory allocated
+                torch.cuda.reset_max_memory_allocated()
+
+                # Log memory state
+                memory_allocated = torch.cuda.memory_allocated() / 1024 ** 2
+                memory_reserved = torch.cuda.memory_reserved() / 1024 ** 2
+                logger.info(f"GPU memory cleared. Current allocated: {memory_allocated:.2f} MB")
+                logger.info(f"GPU memory reserved: {memory_reserved:.2f} MB")
+        except Exception as e:
+            logger.error(f"Error clearing GPU memory: {str(e)}")
             raise
 
     def unload_all(self):
@@ -363,16 +420,6 @@ class ModelManager:
         except Exception as e:
             logger.error(f"Error during unload_all: {str(e)}")
             raise
-
-    def _clear_gpu_memory(self):
-        """Clear GPU memory and cache"""
-        gc.collect()
-        if torch.cuda.is_available():
-            with torch.cuda.device('cuda'):
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-            torch.cuda.reset_peak_memory_stats()
-            logger.info("GPU memory cleared")
 
 
 # Create singleton instance
