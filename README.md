@@ -51,7 +51,7 @@ You need to request access to these models on the Hugging Face website and obtai
 
 1. Clone the repository:
    ```
-   git clone https://github.com/TobiFank/EchoQuest.git
+   git clone https://github.com/fankto/EchoQuest.git
    cd EchoQuest
    ```
 
@@ -125,7 +125,7 @@ You need to request access to these models on the Hugging Face website and obtai
 
 If you find EchoQuest useful and want to help me keep developing innovative, open-source tools, consider supporting me by buying me a token. Your support helps cover development costs and allows me to create more projects like this!
 
-[Buy me a token!](https://buymeacoffee.com/TobiFank)
+[Buy me a token!](https://buymeacoffee.com/fankto)
 
 Or, scan the QR code below to contribute:
 
