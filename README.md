@@ -1,6 +1,7 @@
 # EchoQuest
 
 ![License: Custom Non-Commercial](https://img.shields.io/badge/License-Custom%20Non--Commercial-red.svg)
+[![Project Status: Alpha](https://img.shields.io/badge/Project%20Status-Alpha-yellow.svg)](README.md)
 
 EchoQuest is a tool designed to streamline the process of conducting, transcribing, and analyzing semi-guided interviews. This application helps interviewers manage questionnaires, process audio recordings, generate transcriptions, and automatically answer predefined questions based on the interview content.
 
