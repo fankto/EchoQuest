@@ -1,19 +1,19 @@
-# frontend
-FROM node:18
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package.json and yarn.lock
-COPY package.json yarn.lock ./
-
 # Install dependencies
-RUN yarn install
+COPY package.json package-lock.json* /app/
+RUN npm ci
 
-# Copy the rest of the application
-COPY . .
+# Copy application code
+COPY . /app/
 
-# Expose the port the app runs on
+# Build the application for development mode
+RUN npm run build
+
+# Expose port
 EXPOSE 3000
 
-# Command to run the application
-CMD ["yarn", "start"]
+# Run the application in development mode
+CMD ["npm", "run", "dev"]

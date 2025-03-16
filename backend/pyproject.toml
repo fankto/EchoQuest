@@ -1,65 +1,62 @@
 [tool.poetry]
 name = "echoquest"
 version = "0.1.0"
-description = "Voice-to-Text Interview Analysis System"
-authors = ["Your Name <you@example.com>"]
-packages = [
-    { include = "src" }
-]
+description = "Interview transcription and analysis platform"
+authors = ["Your Name <your.email@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-fastapi = "^0.109.2"
-uvicorn = "^0.27.1"
+fastapi = "^0.103.1"
+uvicorn = {extras = ["standard"], version = "^0.23.2"}
+pydantic = {extras = ["email"], version = "^2.3.0"}
+pydantic-settings = "^2.0.3"
+sqlalchemy = "^2.0.20"
+asyncpg = "^0.28.0"
+alembic = "^1.12.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-multipart = "^0.0.6"
+httpx = "^0.24.1"
+tenacity = "^8.2.3"
+redis = "^5.0.0"
+celery = "^5.3.4"
+openai = "^0.28.1"
+qdrant-client = "^1.6.0"
+tiktoken = "^0.5.1"
+bs4 = "^0.0.1"
 pydub = "^0.25.1"
-python-multipart = "^0.0.9"
-pydantic = {extras = ["dotenv"], version = "^2.5.3"}
-pydantic-settings = "^2.1.0"
-python-dotenv = "^1.0.1"
-scipy = "^1.12.0"
-transformers = "^4.45.2"
-numpy = "^1.23.0"
-noisereduce = "^3.0.3"
-speechbrain = "^1.0.1"
-webrtcvad = "^2.0.10"
-soundfile = "^0.12.1"
-pyroomacoustics = "^0.7.7"
-asteroid = "^0.7.0"
-scikit-learn = "^1.5.2"
-python-docx = "^1.1.2"
-pypdf2 = "^3.0.1"
-sqlalchemy = "^2.0.35"
-docx2txt = "^0.8"
-accelerate = "^1.0.1"
-bitsandbytes = "^0.44.1"
-guidance = "^0.1.16"
-json5 = "^0.9.25"
-pyyaml = "^6.0.2"
-pytest-order = "^1.3.0"
-llvmlite = "^0.43.0"
-pyannote-audio = "^3.3.2"
-gtts = "^2.5.3"
-python-dateutil = "^2.9.0.post0"
-aiofiles = "^24.1.0"
-librosa = "^0.10.2.post1"
-torch = {version = "^2.5.0+cu121", source = "pytorch"}
-torchvision = {version = "^0.20.0+cu121", source = "pytorch"}
-torchaudio = {version = "^2.5.0+cu121", source = "pytorch"}
-huggingface-hub = "^0.26.0"
-speechbox = {git = "https://github.com/huggingface/speechbox.git"}
-numba = "^0.60.0"
-httpx = "^0.28.1"
-resampy = "^0.4.3"
+ffmpeg-python = "^0.2.0"
+python-dotenv = "^1.0.0"
+fastapi-pagination = "^0.12.10"
+loguru = "^0.7.2"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.3"
-httpx = "^0.28.1"
+pytest = "^7.4.2"
+pytest-asyncio = "^0.21.1"
+black = "^23.7.0"
+isort = "^5.12.0"
+mypy = "^1.5.1"
+pylint = "^2.17.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[[tool.poetry.source]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cu121"
-priority = "explicit"
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
