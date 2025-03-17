@@ -88,7 +88,7 @@ export default function InterviewDetailPage() {
   const processAudio = async () => {
     try {
       setIsProcessing(true)
-      await api.post(`/api/interviews/process/${id}`)
+      await api.post(`/api/interviews/${id}/process`)
       toast.success('Audio processing started')
       pollProcessingStatus()
     } catch (error) {
@@ -100,7 +100,7 @@ export default function InterviewDetailPage() {
   const transcribeAudio = async () => {
     try {
       setIsTranscribing(true)
-      await api.post(`/api/interviews/transcribe/${id}`, {
+      await api.post(`/api/interviews/${id}/transcribe`, {
         language: null // Auto-detect language
       })
       toast.success('Transcription started')
@@ -113,7 +113,7 @@ export default function InterviewDetailPage() {
 
   const generateAnswers = async () => {
     try {
-      await api.post(`/api/interviews/generate-answers/${id}`)
+      await api.post(`/api/interviews/${id}/generate-answers`)
       toast.success('Answer generation started')
       fetchInterview()
     } catch (error) {

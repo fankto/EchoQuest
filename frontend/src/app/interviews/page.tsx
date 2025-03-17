@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { 
@@ -12,34 +12,65 @@ import {
   TableRow 
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PlusIcon, Search, FileCog, FileAudio } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { PlusIcon, FileCog, FileAudio, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { formatDistanceToNow } from 'date-fns'
 import { Interview, InterviewStatus } from '@/types/interview'
 import api from '@/lib/api-client'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 export default function InterviewsPage() {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
 
-  useEffect(() => {
-    const fetchInterviews = async () => {
-      try {
-        setIsLoading(true)
-        const data = await api.get('/api/interviews/')
-        setInterviews(data.items || [])
-      } catch (error) {
-        toast.error('Failed to fetch interviews')
-      } finally {
-        setIsLoading(false)
-      }
+  const fetchInterviews = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const data = await api.get<{items: Interview[]}>('/api/interviews/')
+      setInterviews(data.items || [])
+    } catch (error) {
+      toast.error('Failed to fetch interviews')
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchInterviews()
   }, [])
+
+  useEffect(() => {
+    fetchInterviews()
+  }, [fetchInterviews])
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+
+    try {
+      setIsDeleting(true)
+      await api.delete(`/api/interviews/${deleteTarget}`)
+      toast.success('Interview deleted successfully')
+      
+      // Remove the deleted interview from the state
+      setInterviews(interviews.filter(interview => interview.id !== deleteTarget))
+      setDeleteTarget(null)
+    } catch (error) {
+      toast.error('Failed to delete interview')
+      console.error('Delete error:', error)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const getStatusBadge = (status: InterviewStatus) => {
     const baseClasses = "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset";
@@ -81,7 +112,7 @@ export default function InterviewsPage() {
         
         {isLoading ? (
           <div className="flex justify-center p-8">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
           </div>
         ) : interviews.length === 0 ? (
           <Card>
@@ -134,7 +165,7 @@ export default function InterviewsPage() {
                         ? formatDistanceToNow(new Date(interview.updated_at), { addSuffix: true })
                         : formatDistanceToNow(new Date(interview.created_at), { addSuffix: true })}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right flex justify-end space-x-1">
                       <Button 
                         variant="ghost" 
                         size="icon"
@@ -143,6 +174,45 @@ export default function InterviewsPage() {
                         <FileCog className="h-4 w-4" />
                         <span className="sr-only">Open</span>
                       </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(interview.id);
+                            }}
+                            className="hover:bg-red-100 hover:text-red-500"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Delete Interview</DialogTitle>
+                            <DialogDescription>
+                              Are you sure you want to delete this interview? This action cannot be undone.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter className="mt-4 gap-2 sm:justify-start">
+                            <DialogClose asChild>
+                              <Button type="button" variant="secondary">
+                                Cancel
+                              </Button>
+                            </DialogClose>
+                            <Button 
+                              type="button" 
+                              variant="destructive" 
+                              onClick={handleDelete}
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </TableCell>
                   </TableRow>
                 ))}

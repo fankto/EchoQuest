@@ -14,7 +14,7 @@ from app.core.exceptions import InsufficientCreditsError
 from app.crud.crud_interview import interview_crud
 from app.crud.crud_transaction import transaction_crud
 from app.db.session import get_db
-from app.models.models import Interview, InterviewStatus, TransactionType, User
+from app.models.models import Interview, InterviewStatus, TransactionType, User, Transaction
 from app.schemas.interview import (
     InterviewCreate,
     InterviewOut,
@@ -23,6 +23,7 @@ from app.schemas.interview import (
 )
 from app.services.file_service import file_service
 from app.services.transcription_service import transcription_service
+from sqlalchemy import delete
 
 router = APIRouter()
 
@@ -173,6 +174,11 @@ async def delete_interview(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions",
         )
+    
+    # Delete associated transactions first to avoid foreign key constraint error
+    await db.execute(
+        delete(Transaction).where(Transaction.interview_id == interview_id)
+    )
     
     # Delete associated files
     if interview.original_filenames:
