@@ -4,10 +4,11 @@ EchoQuest is a modern interview transcription and analysis platform that helps r
 
 ## Features
 
-- 🎙️ **Audio Processing**: Enhance audio quality and transcribe interviews with high accuracy
+- 🎙️ **Audio Processing**: Enhance audio quality and transcribe interviews with high accuracy using AssemblyAI
+- 🗣️ **Speaker Diarization**: Automatically identify different speakers in the conversation
 - 📝 **Questionnaire Management**: Create and manage interview questionnaires
 - 🔍 **AI Analysis**: Automatically extract answers to predefined questions
-- 💬 **Intelligent Chat**: Converse with your interview transcripts using natural language
+- 💬 **Intelligent Chat**: Converse with your interview transcripts using natural language with OpenAI
 - 🔒 **User Management**: Secure authentication and organization-based permissions
 - 💰 **Credit System**: Flexible pay-as-you-go pricing model
 
@@ -18,7 +19,8 @@ EchoQuest is a modern interview transcription and analysis platform that helps r
 - Docker and Docker Compose
 - Node.js 18+ (for frontend development)
 - Python 3.10+ (for backend development)
-- OpenAI API key
+- AssemblyAI API key (required for transcription)
+- OpenAI API key (optional but recommended for chat functionality)
 
 ### Installation
 
@@ -43,11 +45,11 @@ JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# OpenAI API (required for transcription and chat)
-OPENAI_API_KEY=your-openai-api-key
+# AssemblyAI for speech-to-text with diarization (required)
+ASSEMBLY_API_KEY=your-assemblyai-api-key
 
-# Optional: AssemblyAI for alternative transcription
-ASSEMBLYAI_API_KEY=your-assemblyai-api-key
+# OpenAI API (optional for chat functionality)
+# OPENAI_API_KEY=your-openai-api-key
 
 # Environment
 ENVIRONMENT=development
@@ -94,7 +96,8 @@ EchoQuest is built with a modern stack:
 - **Database**: PostgreSQL for reliable data storage
 - **Vector Database**: Qdrant for transcript embeddings and semantic search
 - **Cache**: Redis for session management and caching
-- **AI**: OpenAI API for transcription and language processing
+- **Speech-to-Text**: AssemblyAI for accurate transcription with speaker diarization
+- **Language Processing**: OpenAI API for chat and question answering
 
 ## API Documentation
 

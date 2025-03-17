@@ -5,7 +5,7 @@ import uuid
 from typing import Dict, List, Optional, Tuple
 
 import ffmpeg
-import openai
+import httpx
 from loguru import logger
 from pydub import AudioSegment
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,9 +21,10 @@ class TranscriptionService:
     
     def __init__(self):
         self.qdrant_service = QdrantService()
-        # Ensure API key is set from settings
-        openai.api_key = settings.OPENAI_API_KEY
-        logger.info(f"OpenAI API key configured: {'Valid key' if not settings.OPENAI_API_KEY.startswith('your-') else 'Invalid key'}")
+        # Configure AssemblyAI with API key
+        self.assembly_api_key = settings.ASSEMBLY_API_KEY
+        self.assembly_base_url = "https://api.assemblyai.com/v2"
+        logger.info(f"AssemblyAI API key configured: {'Valid key' if not self.assembly_api_key.startswith('your-') else 'Invalid key'}")
     
     async def process_audio(self, interview_id: str, db: AsyncSession) -> None:
         """
@@ -186,11 +187,127 @@ class TranscriptionService:
                 await db.commit()
             raise
     
+    async def _upload_file_to_assembly(self, file_path: str) -> str:
+        """
+        Upload a file to AssemblyAI for transcription
+        
+        Args:
+            file_path: Path to the audio file
+            
+        Returns:
+            The upload URL
+        """
+        # Read the file
+        with open(file_path, "rb") as audio_file:
+            data = audio_file.read()
+        
+        # Upload to AssemblyAI
+        headers = {
+            "authorization": self.assembly_api_key,
+            "content-type": "application/json"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.assembly_base_url}/upload",
+                headers=headers,
+                data=data
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Error uploading file to AssemblyAI: {response.text}")
+                
+            upload_url = response.json()["upload_url"]
+            return upload_url
+    
+    async def _create_transcription_job(self, upload_url: str, language: Optional[str] = None) -> str:
+        """
+        Create a transcription job in AssemblyAI
+        
+        Args:
+            upload_url: The URL of the uploaded file
+            language: The language code (optional)
+            
+        Returns:
+            The ID of the transcription job
+        """
+        headers = {
+            "authorization": self.assembly_api_key,
+            "content-type": "application/json"
+        }
+        
+        # Prepare transcription request
+        data = {
+            "audio_url": upload_url,
+            "speaker_labels": True,  # Enable speaker diarization
+            "word_boost": ["interview", "question", "answer"],  # Boost relevant words
+            "punctuate": True,
+            "format_text": True,
+            "dual_channel": False,  # Set to True for two-channel audio
+        }
+        
+        if language:
+            data["language_code"] = language
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.assembly_base_url}/transcript",
+                json=data,
+                headers=headers
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Error creating transcription job: {response.text}")
+                
+            return response.json()["id"]
+    
+    async def _get_transcription_result(self, transcript_id: str) -> Dict:
+        """
+        Get the result of a transcription job
+        
+        Args:
+            transcript_id: The ID of the transcription job
+            
+        Returns:
+            The transcription result
+        """
+        headers = {
+            "authorization": self.assembly_api_key
+        }
+        
+        # Poll until the transcription is complete
+        max_retries = 60  # 10 minute timeout (60 * 10 seconds)
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.assembly_base_url}/transcript/{transcript_id}",
+                    headers=headers
+                )
+                
+                if response.status_code != 200:
+                    raise Exception(f"Error getting transcription result: {response.text}")
+                    
+                result = response.json()
+                status = result.get("status")
+                
+                if status == "completed":
+                    return result
+                elif status == "error":
+                    raise Exception(f"Transcription failed: {result.get('error')}")
+                
+                # Wait before retrying
+                await asyncio.sleep(10)
+                retry_count += 1
+        
+        raise Exception("Transcription timed out")
+    
     async def _transcribe_file(
         self, file_path: str, language: Optional[str] = None
     ) -> Tuple[List[Dict], float]:
         """
-        Transcribe a single audio file
+        Transcribe a single audio file using AssemblyAI
         
         Args:
             file_path: Path to audio file
@@ -205,93 +322,64 @@ class TranscriptionService:
             duration = len(audio) / 1000  # Convert to seconds
             
             # For demo purposes, if the API key is not valid, create a mock transcript
-            if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.startswith("your-") or "your-openai-api-key" in settings.OPENAI_API_KEY:
-                logger.warning("Using mock transcription as OpenAI API key is not configured properly")
+            if not self.assembly_api_key or self.assembly_api_key.startswith("your-"):
+                logger.warning("Using mock transcription as AssemblyAI API key is not configured properly")
                 segments = [{
-                    "text": "This is a mock transcript. To get real transcriptions, please set a valid OpenAI API key in your .env file.",
+                    "text": "This is a mock transcript. To get real transcriptions, please set a valid AssemblyAI API key in your .env file.",
                     "start_time": 0,
                     "end_time": duration,
                     "speaker": "Speaker",
                 }]
                 return segments, duration
             
-            # Open file
-            with open(file_path, "rb") as audio_file:
-                # Prepare options for OpenAI API with improved configuration
-                options = {
-                    "response_format": "verbose_json",
-                    "timestamp_granularities": ["segment", "word"],  # Get both segment and word timestamps
-                }
-                
-                if language:
-                    options["language"] = language
-                
-                # Transcribe with OpenAI - v0.28.1 doesn't have native async support
-                loop = asyncio.get_event_loop()
-                response = await loop.run_in_executor(
-                    None, 
-                    lambda: openai.Audio.transcribe("whisper-1", audio_file, **options)
-                )
+            # Upload file to AssemblyAI
+            upload_url = await self._upload_file_to_assembly(file_path)
             
-            # Extract segments with speaker identification
+            # Create transcription job
+            transcript_id = await self._create_transcription_job(upload_url, language)
+            
+            # Get transcription result
+            transcription = await self._get_transcription_result(transcript_id)
+            
+            # Convert AssemblyAI format to our segment format
             segments = []
-            speaker_map = {}  # Map to ensure consistent speaker labels
-            speaker_counter = 1
             
-            if "segments" in response:
-                # Extract longer segments by combining short ones
-                min_segment_duration = 5.0  # Minimum segment duration in seconds
-                current_segment = None
-                
-                for segment in response["segments"]:
-                    segment_text = segment["text"].strip()
-                    segment_start = segment["start"]
-                    segment_end = segment["end"]
-                    segment_duration = segment_end - segment_start
+            if "utterances" in transcription:
+                for utterance in transcription["utterances"]:
+                    # AssemblyAI provides start and end times in milliseconds, we convert to seconds
+                    start_time = utterance["start"] / 1000
+                    end_time = utterance["end"] / 1000
+                    text = utterance["text"]
+                    speaker = f"Speaker {utterance['speaker']}"
                     
-                    # Speaker identification - in this demo, we'll alternate speakers
-                    # In a real implementation, you'd need to implement or integrate a proper
-                    # speaker diarization model or service here
+                    # Extract word-level data if available
+                    words = []
+                    if "words" in transcription:
+                        # Filter words that belong to this utterance
+                        utterance_words = [
+                            word for word in transcription["words"]
+                            if word["start"] >= utterance["start"] and word["end"] <= utterance["end"]
+                        ]
+                        
+                        for word in utterance_words:
+                            words.append({
+                                "word": word["text"],
+                                "start": word["start"] / 1000,
+                                "end": word["end"] / 1000,
+                                "confidence": word.get("confidence", 1.0)
+                            })
                     
-                    # Simple approach: alternate speakers based on longer pauses
-                    # or assign based on segment index for demo purposes
-                    speaker_id = (len(segments) // 2) % 2 + 1
-                    
-                    # Get word-level data if available
-                    words = segment.get("words", [])
-                    
-                    if current_segment is None:
-                        # Start a new segment
-                        current_segment = {
-                            "text": segment_text,
-                            "start_time": segment_start,
-                            "end_time": segment_end,
-                            "speaker": f"Speaker {speaker_id}",
-                            "words": words
-                        }
-                    elif segment_duration < min_segment_duration and (current_segment["end_time"] - current_segment["start_time"]) < 30.0:
-                        # If segment is short and current accumulated segment isn't too long, combine them
-                        current_segment["text"] += " " + segment_text
-                        current_segment["end_time"] = segment_end
-                        current_segment["words"].extend(words)
-                    else:
-                        # Finalize current segment and start a new one
-                        segments.append(current_segment)
-                        current_segment = {
-                            "text": segment_text,
-                            "start_time": segment_start,
-                            "end_time": segment_end,
-                            "speaker": f"Speaker {speaker_id}",
-                            "words": words
-                        }
-                
-                # Add the last segment if it exists
-                if current_segment:
-                    segments.append(current_segment)
+                    segments.append({
+                        "text": text,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "speaker": speaker,
+                        "words": words
+                    })
             else:
-                # Fallback if no segments are available
+                # Fallback if no utterances are available
                 segments.append({
-                    "text": response["text"],
+                    "text": transcription.get("text", "No transcription available"),
                     "start_time": 0,
                     "end_time": duration,
                     "speaker": "Speaker 1",

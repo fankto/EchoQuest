@@ -48,13 +48,13 @@ class Settings(BaseSettings):
     PROCESSED_DIR: str = "/app/data/processed"
     MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024  # 100 MB
     
-    # OpenAI
-    OPENAI_API_KEY: str
+    # OpenAI - Optional, used for chat functionality
+    OPENAI_API_KEY: Optional[str] = None
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_CHAT_MODEL: str = "gpt-4-turbo-preview"
     
-    # Optional AssemblyAI for transcription
-    ASSEMBLYAI_API_KEY: Optional[str] = None
+    # AssemblyAI for transcription
+    ASSEMBLY_API_KEY: str
     
     # Qdrant
     QDRANT_URL: str = "http://qdrant:6333"

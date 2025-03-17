@@ -19,6 +19,10 @@ class ChatService:
     
     def __init__(self):
         self.qdrant_service = QdrantService()
+        # Initialize OpenAI API key
+        openai.api_key = settings.OPENAI_API_KEY
+        if not openai.api_key or isinstance(openai.api_key, str) and (openai.api_key.startswith("your-") or not openai.api_key.strip()):
+            logger.warning("OpenAI API key is not properly configured. Chat functionality will be limited.")
     
     async def create_chat_message(
         self,
@@ -102,6 +106,21 @@ class ChatService:
             Assistant response ChatMessage object
         """
         try:
+            # Check if OpenAI API key is configured
+            if not openai.api_key or isinstance(openai.api_key, str) and (openai.api_key.startswith("your-") or not openai.api_key.strip()):
+                # Create a mock response if OpenAI is not configured
+                content = "I'm sorry, but the OpenAI API is not properly configured. Please set up a valid OpenAI API key to use the chat functionality."
+                message = ChatMessage(
+                    interview_id=interview.id,
+                    user_id=user.id,
+                    role="assistant",
+                    content=content,
+                    tokens_used=0,  # No tokens used for mock response
+                )
+                db.add(message)
+                await db.flush()
+                return message
+            
             # Get transcript chunks based on recent messages
             transcript_context = await self._get_transcript_context(interview, context_messages)
             

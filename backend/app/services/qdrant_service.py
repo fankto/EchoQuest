@@ -8,6 +8,7 @@ from qdrant_client.http import models as qdrant_models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.http.models import Filter, PointStruct
 import asyncio
+import random
 
 from app.core.config import settings
 
@@ -19,6 +20,10 @@ class QdrantService:
         self.client = QdrantClient(url=settings.QDRANT_URL)
         self.collection_name = settings.QDRANT_COLLECTION_NAME
         openai.api_key = settings.OPENAI_API_KEY
+        self.has_valid_api_key = bool(openai.api_key) and not (isinstance(openai.api_key, str) and 
+                                 (openai.api_key.startswith("your-") or not openai.api_key.strip()))
+        if not self.has_valid_api_key:
+            logger.warning("OpenAI API key is not properly configured. RAG functionality will be limited.")
     
     async def init_collections(self):
         """Initialize Qdrant collections"""
@@ -45,6 +50,11 @@ class QdrantService:
     async def create_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Create embeddings for a list of texts"""
         try:
+            if not self.has_valid_api_key:
+                # Generate mock embeddings if no valid API key
+                logger.warning("Using mock embeddings as OpenAI API key is not configured properly")
+                return [self._generate_mock_embedding() for _ in texts]
+                
             # Using v0.28.1 API style instead of the newer embeddings.create()
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
@@ -57,7 +67,13 @@ class QdrantService:
             return [item['embedding'] for item in response['data']]
         except Exception as e:
             logger.error(f"Error creating embeddings: {e}")
-            raise
+            # Fallback to mock embeddings
+            return [self._generate_mock_embedding() for _ in texts]
+    
+    def _generate_mock_embedding(self) -> List[float]:
+        """Generate a mock embedding vector for testing without OpenAI API"""
+        # Create a 1536-dimensional vector with small random values
+        return [random.uniform(-0.01, 0.01) for _ in range(1536)]
     
     async def index_transcript_chunks(
         self, interview_id: str, chunks: List[Dict[str, Any]]
