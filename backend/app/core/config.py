@@ -37,7 +37,7 @@ class Settings(BaseSettings):
             password=os.getenv("POSTGRES_PASSWORD", "echoquest"),
             host=os.getenv("POSTGRES_HOST", "postgres"),
             port=5432,
-            path=f"/{os.getenv('POSTGRES_DB', 'echoquest')}",
+            path=os.getenv('POSTGRES_DB', 'echoquest'),
         )
     
     # Redis
@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[EmailStr] = None
     EMAILS_FROM_NAME: Optional[str] = None
+    
+    # Auth0 Configuration
+    AUTH0_DOMAIN: str = "your-auth0-domain.auth0.com"
+    AUTH0_CLIENT_ID: str = "your-auth0-client-id"
+    AUTH0_CLIENT_SECRET: str = "your-auth0-client-secret"
+    AUTH0_AUDIENCE: str = "https://api.echoquest.com"
+    AUTH0_CALLBACK_URL: str = "http://localhost:3001/auth/callback"
 
 
 settings = Settings()

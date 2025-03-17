@@ -18,14 +18,15 @@ RUN apt-get update \
 
 # Install Poetry
 RUN pip install --upgrade pip \
-    && pip install poetry==1.6.1
+    && pip install poetry==1.7.1 aiofiles
 
 # Copy only requirements to cache them in docker layer
-COPY pyproject.toml poetry.lock* /app/
+COPY pyproject.toml /app/
 
-# Configure poetry to not use a virtual environment
+# Configure poetry to not use a virtual environment and install dependencies
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --no-root --no-dev
+    && poetry lock --no-update \
+    && poetry install --no-interaction --no-ansi --no-root --only main
 
 # Copy application code
 COPY . /app/

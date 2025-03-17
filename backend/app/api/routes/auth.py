@@ -1,7 +1,8 @@
 from datetime import timedelta
-from typing import Any
+from typing import Any, Dict, Optional
+import httpx
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +12,9 @@ from app.crud.crud_user import user_crud
 from app.db.session import get_db
 from app.models.models import User
 from app.schemas.token import Token
+from app.schemas.user import UserCreate, UserOut
 from app.services.token_service import token_service
+from app.services.email_service import email_service
 
 router = APIRouter()
 
@@ -108,3 +111,97 @@ async def read_users_me(
         "available_interview_credits": current_user.available_interview_credits,
         "available_chat_tokens": current_user.available_chat_tokens,
     }
+
+
+@router.post("/register", response_model=UserOut)
+async def register(
+    user_in: UserCreate,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Register a new user
+    """
+    # Check if user with this email already exists
+    user = await user_crud.get_by_email(db, email=user_in.email)
+    if user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
+        )
+    
+    # Create new user
+    user = await user_crud.create(db, obj_in=user_in)
+    
+    # Send welcome email
+    await email_service.send_welcome_email(user.email, user.full_name or "User")
+    
+    return user
+
+
+@router.post("/auth0/token", response_model=Token)
+async def auth0_token(
+    code: str,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Exchange Auth0 authorization code for access token
+    """
+    try:
+        # Exchange code for Auth0 tokens
+        token_url = f"https://{settings.AUTH0_DOMAIN}/oauth/token"
+        token_payload = {
+            "grant_type": "authorization_code",
+            "client_id": settings.AUTH0_CLIENT_ID,
+            "client_secret": settings.AUTH0_CLIENT_SECRET,
+            "code": code,
+            "redirect_uri": settings.AUTH0_CALLBACK_URL,
+        }
+        
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(token_url, json=token_payload)
+            token_data = token_response.json()
+            
+            if "error" in token_data:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Auth0 error: {token_data.get('error_description', token_data['error'])}",
+                )
+            
+            # Get user info from Auth0
+            user_info_url = f"https://{settings.AUTH0_DOMAIN}/userinfo"
+            user_info_response = await client.get(
+                user_info_url,
+                headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            )
+            user_info = user_info_response.json()
+            
+            # Check if user exists in our database
+            user = await user_crud.get_by_email(db, email=user_info["email"])
+            
+            if not user:
+                # Create new user
+                user_create = UserCreate(
+                    email=user_info["email"],
+                    password=token_service.generate_random_password(),  # Generate a random password
+                    full_name=user_info.get("name", ""),
+                )
+                user = await user_crud.create(db, obj_in=user_create)
+            
+            # Generate our own tokens
+            access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+            
+            return {
+                "access_token": token_service.create_access_token(
+                    subject=str(user.id), expires_delta=access_token_expires
+                ),
+                "refresh_token": token_service.create_refresh_token(
+                    subject=str(user.id)
+                ),
+                "token_type": "bearer",
+            }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Auth0 authentication failed: {str(e)}",
+        )

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/components/ui/use-toast'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Pencil, Save, X, Search, PlayCircle } from 'lucide-react'
@@ -42,8 +42,7 @@ export function TranscriptViewer({
   const [editedText, setEditedText] = useState(transcriptText)
   const [originalText] = useState(transcriptText)
   const [activeTab, setActiveTab] = useState<string>('transcript')
-  const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map())
-  const { toast } = useToast()
+  const segmentRefs = useRef<Map<number, HTMLElement>>(new Map())
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
@@ -66,17 +65,14 @@ export function TranscriptViewer({
         transcription: editedText
       })
       
-      toast({
-        title: "Success",
-        description: "Transcription updated successfully",
+      toast("Transcription updated successfully", {
+        description: "Your changes have been saved",
       })
       
       setIsEditing(false)
     } catch (error) {
-      toast({
-        title: "Error",
+      toast("Error updating transcription", {
         description: "Failed to update transcription",
-        variant: "destructive",
       })
     }
   }
@@ -139,16 +135,27 @@ export function TranscriptViewer({
                 value={editedText}
                 onChange={(e) => setEditedText(e.target.value)}
                 className="w-full h-full p-4 resize-none focus:outline-none border-0"
+                aria-label="Edit transcript"
+                placeholder="Enter transcript text"
               />
             ) : (
               <ScrollArea className="h-full p-4">
                 {transcriptText ? (
                   <div 
-                    dangerouslySetInnerHTML={{ 
-                      __html: highlightSearchQuery(transcriptText) 
-                    }}
                     className="whitespace-pre-wrap"
-                  />
+                  >
+                    {searchQuery ? (
+                      <>
+                        {transcriptText.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
+                          part.toLowerCase() === searchQuery.toLowerCase() 
+                            ? <mark key={`transcript-mark-${i}-${part}`}>{part}</mark> 
+                            : part
+                        )}
+                      </>
+                    ) : (
+                      transcriptText
+                    )}
+                  </div>
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center">
                     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
@@ -171,14 +178,18 @@ export function TranscriptViewer({
               {segments.length > 0 ? (
                 <div className="space-y-4 p-4">
                   {segments.map((segment, index) => (
-                    <div 
-                      key={index}
-                      ref={el => el && segmentRefs.current.set(index, el)}
+                    <button 
+                      type="button"
+                      key={segment.start_time ? `segment-${segment.start_time}-${index}` : `segment-${index}`}
+                      ref={el => {
+                        if (el) segmentRefs.current.set(index, el)
+                      }}
                       className={cn(
-                        "p-3 rounded-md border",
+                        "p-3 rounded-md border w-full text-left",
                         highlightedSegmentIndex === index && "bg-muted/50 border-primary"
                       )}
                       onClick={() => onSegmentClick?.(segment)}
+                      aria-label={`Transcript segment by ${segment.speaker}`}
                     >
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <Badge variant="outline">
@@ -203,12 +214,20 @@ export function TranscriptViewer({
                           )}
                         </div>
                       </div>
-                      <div 
-                        dangerouslySetInnerHTML={{ 
-                          __html: highlightSearchQuery(segment.text) 
-                        }}
-                      />
-                    </div>
+                      <div>
+                        {searchQuery ? (
+                          <>
+                            {segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
+                              part.toLowerCase() === searchQuery.toLowerCase() 
+                                ? <mark key={`segment-${segment.start_time}-mark-${i}-${part.substring(0, 10)}`}>{part}</mark> 
+                                : part
+                            )}
+                          </>
+                        ) : (
+                          segment.text
+                        )}
+                      </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -235,8 +254,11 @@ export function TranscriptViewer({
             ref={audioRef} 
             src={audioUrl} 
             controls 
-            className="w-full h-10" 
-          />
+            className="w-full h-10"
+            aria-label="Interview audio"
+          >
+            <track kind="captions" src="" label="English captions" />
+          </audio>
         </div>
       )}
     </Card>

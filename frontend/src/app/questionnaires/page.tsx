@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PlusIcon, Search, FileText, FilePenLine } from 'lucide-react'
+import { PlusIcon, Search, FileText, Edit } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { formatDistanceToNow } from 'date-fns'
@@ -69,7 +69,7 @@ export default function QuestionnairesPage() {
         
         {isLoading ? (
           <div className="flex justify-center p-8">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
           </div>
         ) : questionnaires.length === 0 ? (
           <Card>
@@ -124,7 +124,7 @@ export default function QuestionnairesPage() {
                         size="icon"
                         onClick={() => router.push(`/questionnaires/${questionnaire.id}`)}
                       >
-                        <FilePenLine className="h-4 w-4" />
+                        <Edit className="h-4 w-4" />
                         <span className="sr-only">Edit</span>
                       </Button>
                     </TableCell>

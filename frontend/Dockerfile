@@ -2,15 +2,15 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Set environment variables
+ENV NEXT_PUBLIC_API_URL=http://localhost:8000
+
 # Install dependencies
-COPY package.json package-lock.json* /app/
-RUN npm ci
+COPY package.json /app/
+RUN npm install
 
 # Copy application code
 COPY . /app/
-
-# Build the application for development mode
-RUN npm run build
 
 # Expose port
 EXPOSE 3000

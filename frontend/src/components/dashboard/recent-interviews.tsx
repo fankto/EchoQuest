@@ -1,141 +1,109 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table'
+import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
-import { ArrowRight, FileText, MessageSquare, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-import { format, formatDistanceToNow } from 'date-fns'
-import { Interview, InterviewStatus } from '@/types/interview'
-import api from '@/lib/api-client'
+import { Card, CardContent } from '@/components/ui/card'
+import { Icons } from '@/components/ui/icons'
+
+// Mock data for recent interviews
+const mockInterviews = [
+  {
+    id: '1',
+    title: 'Interview with John Doe',
+    interviewee_name: 'John Doe',
+    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
+    status: 'processed',
+  },
+  {
+    id: '2',
+    title: 'Product Research Interview',
+    interviewee_name: 'Jane Smith',
+    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
+    status: 'processed',
+  },
+  {
+    id: '3',
+    title: 'Customer Feedback Session',
+    interviewee_name: 'Robert Johnson',
+    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 7 days ago
+    status: 'processed',
+  },
+]
 
 export function RecentInterviews() {
-  const [interviews, setInterviews] = useState<Interview[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
+  const [interviews, setInterviews] = useState(mockInterviews)
+  const [isLoading, setIsLoading] = useState(false)
 
-  useEffect(() => {
-    const fetchInterviews = async () => {
-      try {
-        setIsLoading(true)
-        // Fetch the most recent 5 interviews
-        const data = await api.get('/api/interviews?skip=0&limit=5')
-        setInterviews(data.items || [])
-      } catch (error) {
-        console.error('Failed to fetch interviews:', error)
-        toast.error('Failed to load recent interviews')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchInterviews()
-  }, [])
-
-  const getStatusBadge = (status: InterviewStatus) => {
-    const baseClasses = "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium";
-    
-    switch (status) {
-      case InterviewStatus.CREATED:
-        return <span className={`${baseClasses} bg-gray-100 text-gray-800`}>Created</span>;
-      case InterviewStatus.UPLOADED:
-        return <span className={`${baseClasses} bg-blue-100 text-blue-800`}>Uploaded</span>;
-      case InterviewStatus.PROCESSING:
-        return <span className={`${baseClasses} bg-yellow-100 text-yellow-800`}>Processing</span>;
-      case InterviewStatus.PROCESSED:
-        return <span className={`${baseClasses} bg-indigo-100 text-indigo-800`}>Processed</span>;
-      case InterviewStatus.TRANSCRIBING:
-        return <span className={`${baseClasses} bg-purple-100 text-purple-800`}>Transcribing</span>;
-      case InterviewStatus.TRANSCRIBED:
-        return <span className={`${baseClasses} bg-green-100 text-green-800`}>Transcribed</span>;
-      case InterviewStatus.ERROR:
-        return <span className={`${baseClasses} bg-red-100 text-red-800`}>Error</span>;
-      default:
-        return <span className={`${baseClasses} bg-gray-100 text-gray-800`}>{status}</span>;
-    }
-  };
+  // In a real app, you would fetch interviews from the API
+  // useEffect(() => {
+  //   const fetchInterviews = async () => {
+  //     setIsLoading(true)
+  //     try {
+  //       const response = await api.get('/api/interviews?limit=5')
+  //       setInterviews(response)
+  //     } catch (error) {
+  //       console.error('Failed to fetch interviews:', error)
+  //     } finally {
+  //       setIsLoading(false)
+  //     }
+  //   }
+  //   fetchInterviews()
+  // }, [])
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-40">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Icons.spinner className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
   if (interviews.length === 0) {
     return (
-      <div className="text-center py-8">
-        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+      <div className="flex flex-col items-center justify-center h-40 text-center">
+        <Icons.fileText className="h-10 w-10 text-muted-foreground mb-2" />
         <h3 className="text-lg font-medium">No interviews yet</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Get started by creating your first interview
+          Create your first interview to get started
         </p>
-        <Button asChild>
-          <Link href="/interviews/new">Create Interview</Link>
-        </Button>
+        <Link href="/interviews/new">
+          <Button>
+            <Icons.add className="mr-2 h-4 w-4" />
+            New Interview
+          </Button>
+        </Link>
       </div>
     )
   }
 
   return (
-    <div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Interviewee</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {interviews.map((interview) => (
-            <TableRow key={interview.id} className="cursor-pointer hover:bg-muted/50">
-              <TableCell className="font-medium" onClick={() => router.push(`/interviews/${interview.id}`)}>
-                {interview.title}
-              </TableCell>
-              <TableCell onClick={() => router.push(`/interviews/${interview.id}`)}>
-                {interview.interviewee_name}
-              </TableCell>
-              <TableCell onClick={() => router.push(`/interviews/${interview.id}`)}>
-                {getStatusBadge(interview.status)}
-              </TableCell>
-              <TableCell onClick={() => router.push(`/interviews/${interview.id}`)}>
-                {formatDistanceToNow(new Date(interview.date), { addSuffix: true })}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  {interview.status === InterviewStatus.TRANSCRIBED && (
-                    <Button variant="ghost" size="icon" onClick={() => router.push(`/interviews/${interview.id}/chat`)}>
-                      <MessageSquare className="h-4 w-4" />
-                      <span className="sr-only">Chat</span>
-                    </Button>
-                  )}
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => router.push(`/interviews/${interview.id}`)}
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                    <span className="sr-only">View</span>
-                  </Button>
+    <div className="space-y-4">
+      {interviews.map((interview) => (
+        <Link key={interview.id} href={`/interviews/${interview.id}`}>
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-medium">{interview.title}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {interview.interviewee_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDistanceToNow(interview.date, { addSuffix: true })}
+                  </p>
                 </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                <div className="flex items-center">
+                  <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 px-2 py-1 rounded-full">
+                    {interview.status}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
     </div>
   )
 }

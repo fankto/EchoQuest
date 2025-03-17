@@ -7,6 +7,8 @@ from fastapi import Depends
 from jose import JWTError, jwt
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
+import secrets
+import string
 
 from app.core.config import settings
 from app.crud.crud_user import user_crud
@@ -104,6 +106,11 @@ class TokenService:
         num_tokens += 3  # Every reply is primed with <|start|>assistant<|message|>
         
         return num_tokens
+
+    def generate_random_password(self, length: int = 16) -> str:
+        """Generate a secure random password for Auth0 users"""
+        alphabet = string.ascii_letters + string.digits + string.punctuation
+        return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
 # Create singleton instance
