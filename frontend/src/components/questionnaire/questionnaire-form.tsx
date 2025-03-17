@@ -101,11 +101,11 @@ export function QuestionnaireForm({ initialData }: QuestionnaireFormProps) {
       
       if (initialData?.id) {
         // Update existing
-        await api.patch(`/api/questionnaires/${initialData.id}`, formData)
+        await api.upload(`/api/questionnaires/${initialData.id}`, formData)
         toast.success('Questionnaire updated successfully')
       } else {
         // Create new
-        const response = await api.post('/api/questionnaires', formData)
+        const response = await api.upload('/api/questionnaires', formData)
         toast.success('Questionnaire created successfully')
         router.push(`/questionnaires/${response.id}`)
       }

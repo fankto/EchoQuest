@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useDropzone, type FileRejection } from 'react-dropzone'
 import { toast } from 'sonner'
-import { Upload, X, File, AudioLines } from 'lucide-react'
+import { Upload } from 'lucide-react'
+import { X } from 'lucide-react'
+import { Music } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -26,11 +28,11 @@ interface UploadAudioProps {
 export function UploadAudio({ onFilesChange, maxFiles = 10 }: UploadAudioProps) {
   const [files, setFiles] = useState<File[]>([])
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
     // Handle rejected files
     if (rejectedFiles.length > 0) {
-      rejectedFiles.forEach((file) => {
-        file.errors.forEach((error: any) => {
+      for (const file of rejectedFiles) {
+        for (const error of file.errors) {
           if (error.code === 'file-too-large') {
             toast.error(`File ${file.file.name} is too large. Max size is 500MB.`)
           } else if (error.code === 'file-invalid-type') {
@@ -38,34 +40,47 @@ export function UploadAudio({ onFilesChange, maxFiles = 10 }: UploadAudioProps) 
           } else {
             toast.error(`Error with file ${file.file.name}: ${error.message}`)
           }
-        })
+        }
+      }
+      return
+    }
+
+    // Add debugging for accepted files
+    if (acceptedFiles.length > 0) {
+      console.log('Accepted files:', acceptedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })))
+    }
+
+    try {
+      // Update files state and notify parent using functional updates
+      setFiles((prev) => {
+        // Check if adding these files would exceed the max
+        if (prev.length + acceptedFiles.length > maxFiles) {
+          toast.error(`You can only upload up to ${maxFiles} files.`)
+          const newFiles = [...prev, ...acceptedFiles].slice(0, maxFiles)
+          // Call onFilesChange outside of the render phase
+          setTimeout(() => onFilesChange(newFiles), 0)
+          return newFiles
+        }
+
+        const updated = [...prev, ...acceptedFiles]
+        // Call onFilesChange outside of the render phase
+        setTimeout(() => onFilesChange(updated), 0)
+        return updated
       })
-      return
+    } catch (error) {
+      console.error('Error in file upload handler:', error)
+      toast.error('An error occurred while handling the files. Please try again.')
     }
+  }, [maxFiles, onFilesChange])
 
-    // Update files state and notify parent
-    if (files.length + acceptedFiles.length > maxFiles) {
-      toast.error(`You can only upload up to ${maxFiles} files.`)
-      const newFiles = [...files, ...acceptedFiles].slice(0, maxFiles)
-      setFiles(newFiles)
-      onFilesChange(newFiles)
-      return
-    }
-
-    setFiles((prev) => {
-      const updated = [...prev, ...acceptedFiles]
-      onFilesChange(updated)
-      return updated
-    })
-  }, [files, maxFiles, onFilesChange])
-
-  const removeFile = (index: number) => {
+  const removeFile = useCallback((index: number) => {
     setFiles((prev) => {
       const updated = prev.filter((_, i) => i !== index)
-      onFilesChange(updated)
+      // Call onFilesChange outside of the render phase
+      setTimeout(() => onFilesChange(updated), 0)
       return updated
     })
-  }
+  }, [onFilesChange])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -75,9 +90,9 @@ export function UploadAudio({ onFilesChange, maxFiles = 10 }: UploadAudioProps) 
   })
 
   function formatFileSize(bytes: number) {
-    if (bytes < 1024) return bytes + ' bytes'
-    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
-    else return (bytes / 1048576).toFixed(1) + ' MB'
+    if (bytes < 1024) return `${bytes} bytes`
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1048576).toFixed(1)} MB`
   }
 
   return (
@@ -113,7 +128,7 @@ export function UploadAudio({ onFilesChange, maxFiles = 10 }: UploadAudioProps) 
                 className="flex items-center justify-between rounded-md border p-3"
               >
                 <div className="flex items-center space-x-3">
-                  <AudioLines className="h-5 w-5 text-muted-foreground" />
+                  <Music className="h-5 w-5 text-muted-foreground" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">{file.name}</p>
                     <p className="text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -24,6 +24,12 @@ import { Icons } from '@/components/ui/icons'
 import { UploadAudio } from './upload-audio'
 import api from '@/lib/api-client'
 
+// Define questionnaire type
+interface Questionnaire {
+  id: string;
+  title: string;
+}
+
 // Define the form schema
 const formSchema = z.object({
   title: z.string().min(1, { message: 'Title is required' }),
@@ -36,8 +42,8 @@ const formSchema = z.object({
 
 export function InterviewForm() {
   const [isLoading, setIsLoading] = useState(false)
-  const [questionnaires, setQuestionnaires] = useState([])
-  const [audioFiles, setAudioFiles] = useState([])
+  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([])
+  const [audioFiles, setAudioFiles] = useState<File[]>([])
   const router = useRouter()
 
   // Initialize form
@@ -57,9 +63,10 @@ export function InterviewForm() {
   useEffect(() => {
     const fetchQuestionnaires = async () => {
       try {
-        const data = await api.get('/api/questionnaires')
+        const data = await api.get<Questionnaire[]>('/api/questionnaires')
         setQuestionnaires(data)
       } catch (error) {
+        console.error('Failed to load questionnaires:', error)
         toast.error('Failed to load questionnaires')
       }
     }
@@ -67,9 +74,17 @@ export function InterviewForm() {
     fetchQuestionnaires()
   }, [])
 
-  const handleFilesChange = (files) => {
-    setAudioFiles(files)
-  }
+  // This function is called from the UploadAudio component
+  // We need to use useCallback to prevent unnecessary re-renders
+  const handleFilesChange = useCallback((files: File[]) => {
+    console.log('Files changed in InterviewForm:', files.length)
+    try {
+      setAudioFiles(files)
+    } catch (error) {
+      console.error('Error handling files in InterviewForm:', error)
+      toast.error('There was an error handling the selected files')
+    }
+  }, [])
 
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -81,26 +96,56 @@ export function InterviewForm() {
     setIsLoading(true)
 
     try {
+      // Ensure date is in ISO format
+      const formattedValues = {
+        ...values,
+        date: new Date(values.date).toISOString(),
+        // Make sure questionnaire_id is either a valid UUID or null (not empty string)
+        questionnaire_id: values.questionnaire_id && values.questionnaire_id.trim() !== '' 
+          ? values.questionnaire_id 
+          : null
+      }
+
+      console.log('Creating interview with values:', formattedValues)
+
       // First create the interview
-      const interviewResponse = await api.post('/api/interviews', values)
+      const interviewResponse = await api.post<{ id: string }>('/api/interviews', formattedValues)
+      console.log('Interview created:', interviewResponse)
       
-      // Then upload audio files
-      const formData = new FormData()
-      audioFiles.forEach(file => {
-        formData.append('files', file)
-      })
+      try {
+        // Then upload audio files
+        console.log('Preparing to upload', audioFiles.length, 'files for interview', interviewResponse.id)
+        const formData = new FormData()
+        for (const file of audioFiles) {
+          formData.append('files', file)
+        }
 
-      await api.post(`/api/interviews/${interviewResponse.id}/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+        await api.upload(`/api/interviews/${interviewResponse.id}/upload`, formData)
 
-      toast.success('Interview created successfully')
-      router.push(`/interviews/${interviewResponse.id}`)
+        toast.success('Interview created successfully')
+        router.push(`/interviews/${interviewResponse.id}`)
+      } catch (uploadError) {
+        console.error('Failed to upload audio files:', uploadError)
+        toast.error(`Interview created but failed to upload audio files: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`)
+        router.push(`/interviews/${interviewResponse.id}`)
+      }
     } catch (error) {
-      console.error(error)
-      toast.error(error.message || 'Failed to create interview')
+      console.error('Failed to create interview:', error)
+      let errorMessage = 'Failed to create interview'
+      
+      if (error instanceof Error) {
+        // Check for specific error messages
+        if (error.message.includes("credits")) {
+          errorMessage = "You don't have enough interview credits available"
+        } else if (error.message.includes("[object Object]")) {
+          errorMessage = "Server validation error. Please check your form inputs."
+        } else {
+          // Use the actual error message
+          errorMessage = `Error: ${error.message}`
+        }
+      }
+      
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }

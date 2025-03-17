@@ -94,22 +94,31 @@ async def get_interview(
     """
     Get interview by ID.
     """
-    interview = await interview_crud.get(db, id=interview_id)
-    if not interview:
+    try:
+        interview = await interview_crud.get(db, id=interview_id)
+        if not interview:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Interview not found",
+            )
+        
+        # Check ownership
+        if interview.owner_id != current_user.id:
+            # TODO: Add organization-based permissions
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions",
+            )
+        
+        return interview
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        logger.error(f"Error retrieving interview {interview_id}: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Interview not found",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving interview: {str(e)}"
         )
-    
-    # Check ownership
-    if interview.owner_id != current_user.id:
-        # TODO: Add organization-based permissions
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions",
-        )
-    
-    return interview
 
 
 @router.patch("/{interview_id}", response_model=InterviewOut)
@@ -192,52 +201,67 @@ async def upload_audio(
     """
     Upload audio files for an interview.
     """
-    interview = await interview_crud.get(db, id=interview_id)
-    if not interview:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Interview not found",
-        )
-    
-    # Check ownership
-    if interview.owner_id != current_user.id:
-        # TODO: Add organization-based permissions
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions",
-        )
-    
-    # Process and save files
-    filenames = []
-    for file in files:
-        # Check file type
-        if not file.content_type.startswith("audio/"):
+    try:
+        interview = await interview_crud.get(db, id=interview_id)
+        if not interview:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File {file.filename} is not an audio file",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Interview not found",
             )
         
-        # Check file size
-        if file.size > settings.MAX_UPLOAD_SIZE:
+        # Check ownership
+        if interview.owner_id != current_user.id:
+            # TODO: Add organization-based permissions
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File {file.filename} exceeds maximum size of {settings.MAX_UPLOAD_SIZE/1024/1024}MB",
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions",
             )
         
-        # Save file
-        filename = await file_service.save_file(file, settings.UPLOAD_DIR)
-        filenames.append(filename)
-    
-    # Update interview
-    current_filenames = json.loads(interview.original_filenames or "[]")
-    current_filenames.extend(filenames)
-    
-    interview.original_filenames = json.dumps(current_filenames)
-    interview.status = InterviewStatus.UPLOADED
-    await db.commit()
-    await db.refresh(interview)
-    
-    return interview
+        # Process and save files
+        filenames = []
+        for file in files:
+            # Check file type
+            if not file.content_type.startswith("audio/"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File {file.filename} is not an audio file",
+                )
+            
+            # Check file size
+            if file.size > settings.MAX_UPLOAD_SIZE:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File {file.filename} exceeds maximum size of {settings.MAX_UPLOAD_SIZE/1024/1024}MB",
+                )
+            
+            # Save file
+            filename = await file_service.save_file(file, settings.UPLOAD_DIR)
+            filenames.append(filename)
+        
+        # Update interview
+        current_filenames = []
+        if interview.original_filenames:
+            try:
+                current_filenames = json.loads(interview.original_filenames)
+                if not isinstance(current_filenames, list):
+                    current_filenames = []
+            except (json.JSONDecodeError, TypeError):
+                current_filenames = []
+        
+        current_filenames.extend(filenames)
+        
+        interview.original_filenames = json.dumps(current_filenames)
+        interview.status = InterviewStatus.UPLOADED
+        await db.commit()
+        await db.refresh(interview)
+        
+        return interview
+    except Exception as e:
+        logger.error(f"Error uploading audio for interview {interview_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error uploading audio: {str(e)}"
+        )
 
 
 @router.post("/{interview_id}/process", response_model=InterviewTaskResponse)

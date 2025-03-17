@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # CORS
-    CORS_ORIGINS: List[AnyHttpUrl] = ["http://localhost:3000", "http://frontend:3000"]
+    CORS_ORIGINS: List[AnyHttpUrl] = ["http://localhost:3000", "http://localhost:3001", "http://frontend:3000"]
     
     # Authentication
     JWT_SECRET: str

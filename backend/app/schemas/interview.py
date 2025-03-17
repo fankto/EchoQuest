@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
+import json
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.models import InterviewStatus
 
@@ -56,6 +57,23 @@ class InterviewOut(InterviewBase):
     
     class Config:
         from_attributes = True
+        
+    @field_validator('original_filenames', 'processed_filenames', mode='before')
+    @classmethod
+    def parse_json_list(cls, value):
+        """Parse JSON strings to lists"""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return None
 
 
 class InterviewDetailOut(InterviewOut):
@@ -66,6 +84,40 @@ class InterviewDetailOut(InterviewOut):
     
     class Config:
         from_attributes = True
+        
+    @field_validator('transcript_segments', mode='before')
+    @classmethod
+    def parse_transcript_segments(cls, value):
+        """Parse JSON transcript segments to list"""
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return None
+        
+    @field_validator('generated_answers', mode='before')
+    @classmethod
+    def parse_generated_answers(cls, value):
+        """Parse JSON generated answers to dict"""
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, dict):
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return None
 
 
 class InterviewWithQuestionnaire(InterviewOut):

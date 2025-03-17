@@ -85,20 +85,16 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
     try {
       setIsLoading(true)
       
-      const formData = new FormData()
-      files.forEach(file => {
-        formData.append('files', file)
-      })
+      console.log('Preparing to upload files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })))
       
-      const response = await api.post<Interview>(
-        `/api/interviews/${interviewId}/upload`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      )
+      const formData = new FormData()
+      for (const file of files) {
+        formData.append('files', file)
+      }
+      
+      console.log('FormData created with', files.length, 'files')
+      
+      const response = await api.upload(`/api/interviews/${interviewId}/upload`, formData)
       
       if (id === interviewId) {
         setInterview(response)
@@ -106,6 +102,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
       
       return response
     } catch (error: any) {
+      console.error('Error details:', error)
       setError(error)
       toast.error('Failed to upload audio files')
       throw error

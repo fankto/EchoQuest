@@ -8,3 +8,4 @@ find_empty_files.sh
 extracted_code.txt
 extract_code.sh
 setup-echoquest.sh
+data/
