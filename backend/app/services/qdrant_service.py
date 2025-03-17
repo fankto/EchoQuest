@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional
+import uuid
 
 import openai
 from loguru import logger
@@ -6,6 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.http.models import Filter, PointStruct
+import asyncio
 
 from app.core.config import settings
 
@@ -43,11 +45,16 @@ class QdrantService:
     async def create_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Create embeddings for a list of texts"""
         try:
-            response = await openai.embeddings.create(
-                model=settings.OPENAI_EMBEDDING_MODEL,
-                input=texts,
+            # Using v0.28.1 API style instead of the newer embeddings.create()
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: openai.Embedding.create(
+                    model=settings.OPENAI_EMBEDDING_MODEL,
+                    input=texts,
+                )
             )
-            return [item.embedding for item in response.data]
+            return [item['embedding'] for item in response['data']]
         except Exception as e:
             logger.error(f"Error creating embeddings: {e}")
             raise
@@ -75,7 +82,8 @@ class QdrantService:
             # Create point objects
             points = []
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                point_id = f"{interview_id}_{i}"
+                # Generate a valid UUID for each point instead of string ID
+                point_id = str(uuid.uuid4())
                 points.append(
                     PointStruct(
                         id=point_id,

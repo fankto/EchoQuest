@@ -20,6 +20,7 @@ from app.schemas.interview import (
     InterviewOut,
     InterviewPatch,
     InterviewTaskResponse,
+    InterviewDetailOut,
 )
 from app.services.file_service import file_service
 from app.services.transcription_service import transcription_service
@@ -86,7 +87,7 @@ async def create_interview(
     return interview
 
 
-@router.get("/{interview_id}", response_model=InterviewOut)
+@router.get("/{interview_id}", response_model=InterviewDetailOut)
 async def get_interview(
     interview_id: uuid.UUID,
     current_user: User = Depends(get_current_active_user),
@@ -358,3 +359,61 @@ async def transcribe_audio(
     )
     
     return {"status": "transcribing", "message": "Audio transcription started"}
+
+
+@router.get("/{interview_id}/audio", response_model=dict)
+async def get_audio_url(
+    interview_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Get audio URL for an interview.
+    """
+    interview = await interview_crud.get(db, id=interview_id)
+    if not interview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found",
+        )
+    
+    # Check ownership
+    if interview.owner_id != current_user.id:
+        # TODO: Add organization-based permissions
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    
+    # First check for processed files (preferred if available)
+    if interview.processed_filenames:
+        try:
+            processed_filenames = json.loads(interview.processed_filenames)
+            if processed_filenames and len(processed_filenames) > 0:
+                audio_filename = processed_filenames[0]
+                return {
+                    "audio_url": f"/api/media/processed/{audio_filename}",
+                    "is_processed": True
+                }
+        except (json.JSONDecodeError, TypeError):
+            # Fall through to original files if processed files can't be parsed
+            pass
+    
+    # If no processed files or if couldn't parse, try original files
+    if interview.original_filenames:
+        try:
+            original_filenames = json.loads(interview.original_filenames)
+            if original_filenames and len(original_filenames) > 0:
+                audio_filename = original_filenames[0]
+                return {
+                    "audio_url": f"/api/media/uploads/{audio_filename}",
+                    "is_processed": False
+                }
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
+    # If we get here, no audio files are available
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="No audio files available",
+    )

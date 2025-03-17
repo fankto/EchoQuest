@@ -20,6 +20,7 @@ export default function InterviewDetailPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | undefined>(undefined)
+  const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined)
   const router = useRouter()
 
   const fetchInterview = useCallback(async () => {
@@ -35,6 +36,26 @@ export default function InterviewDetailPage() {
       } else if (data.status === InterviewStatus.TRANSCRIBING) {
         setIsTranscribing(true)
         pollTranscriptionStatus()
+      }
+      
+      // Get audio URL if available - for any interview with uploaded files
+      if (data.status !== InterviewStatus.CREATED) {
+        try {
+          const audioData = await api.get<{audio_url: string, is_processed: boolean}>(`/api/interviews/${id}/audio`)
+          if (audioData && audioData.audio_url) {
+            // Ensure the URL is absolute
+            let url = audioData.audio_url;
+            if (url.startsWith('/')) {
+              // Convert to absolute URL
+              const baseUrl = window.location.origin;
+              url = `${baseUrl}${url}`;
+            }
+            console.log("Setting audio URL:", url);
+            setAudioUrl(url);
+          }
+        } catch (error) {
+          console.error('Failed to fetch audio URL:', error)
+        }
       }
     } catch (error) {
       toast.error('Failed to fetch interview details')
@@ -224,6 +245,7 @@ export default function InterviewDetailPage() {
                 transcriptText={interview.transcription || ''}
                 segments={interview.transcript_segments}
                 highlightedSegmentIndex={selectedSegmentIndex}
+                audioUrl={audioUrl}
                 className="h-[calc(100vh-280px)]"
               />
               
@@ -260,6 +282,7 @@ export default function InterviewDetailPage() {
                 transcriptText={interview.transcription || ''}
                 segments={interview.transcript_segments}
                 highlightedSegmentIndex={selectedSegmentIndex}
+                audioUrl={audioUrl}
                 className="h-[calc(100vh-280px)]"
               />
               

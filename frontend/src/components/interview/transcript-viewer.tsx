@@ -118,6 +118,21 @@ export function TranscriptViewer({
         </div>
       </CardHeader>
       
+      {audioUrl && (
+        <div className="p-2 border-b">
+          <audio 
+            ref={audioRef} 
+            src={audioUrl} 
+            controls 
+            className="w-full h-10"
+            aria-label="Interview audio"
+            onError={(e) => console.error("Audio error:", e)}
+          >
+            <track kind="captions" src="" label="English captions" />
+          </audio>
+        </div>
+      )}
+      
       <CardContent className="p-0 flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
           <div className="border-b">
@@ -247,20 +262,6 @@ export function TranscriptViewer({
           </TabsContent>
         </Tabs>
       </CardContent>
-      
-      {audioUrl && (
-        <div className="p-2 border-t">
-          <audio 
-            ref={audioRef} 
-            src={audioUrl} 
-            controls 
-            className="w-full h-10"
-            aria-label="Interview audio"
-          >
-            <track kind="captions" src="" label="English captions" />
-          </audio>
-        </div>
-      )}
     </Card>
   )
 }

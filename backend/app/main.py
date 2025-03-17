@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi_pagination import add_pagination
 from loguru import logger
 
@@ -56,6 +57,10 @@ app.add_middleware(
 
 # Add pagination to the API
 add_pagination(app)
+
+# Mount static directories for media files
+app.mount("/api/media/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+app.mount("/api/media/processed", StaticFiles(directory=settings.PROCESSED_DIR), name="processed")
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

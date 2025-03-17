@@ -162,7 +162,7 @@ class TranscriptionService:
             full_transcription = self._format_transcript(all_segments)
             
             # Update interview
-            interview.transcript_segments = json.dumps(all_segments)
+            interview.transcript_segments = all_segments
             interview.transcription = full_transcription
             interview.duration = total_duration
             interview.status = InterviewStatus.TRANSCRIBED
