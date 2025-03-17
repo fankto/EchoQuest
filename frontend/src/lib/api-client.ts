@@ -47,7 +47,7 @@ apiClient.interceptors.response.use(
           // No refresh token, logout
           localStorage.removeItem('token')
           localStorage.removeItem('refreshToken')
-          window.location.href = '/login'
+          window.location.href = '/auth/login'
           return Promise.reject(error)
         }
         
@@ -72,7 +72,7 @@ apiClient.interceptors.response.use(
         // Refresh failed, logout
         localStorage.removeItem('token')
         localStorage.removeItem('refreshToken')
-        window.location.href = '/login'
+        window.location.href = '/auth/login'
         return Promise.reject(refreshError)
       }
     }

@@ -12,6 +12,20 @@ import { ChevronLeft, PlayCircle, Cog, MessageSquare, FileText } from 'lucide-re
 import { Interview, InterviewStatus } from '@/types/interview'
 import Link from 'next/link'
 import api from '@/lib/api-client'
+import { AudioPlayer } from '@/components/interview/audio-player'
+
+// Define the segment type
+interface TranscriptSegment {
+  text: string
+  start_time: number
+  end_time: number
+  speaker: string
+  words?: Array<{
+    word: string
+    start: number
+    end: number
+  }>
+}
 
 export default function InterviewDetailPage() {
   const { id } = useParams()
@@ -20,7 +34,9 @@ export default function InterviewDetailPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | undefined>(undefined)
+  const [selectedSegment, setSelectedSegment] = useState<TranscriptSegment | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined)
+  const [currentTime, setCurrentTime] = useState(0)
   const router = useRouter()
 
   const fetchInterview = useCallback(async () => {
@@ -43,11 +59,11 @@ export default function InterviewDetailPage() {
         try {
           const audioData = await api.get<{audio_url: string, is_processed: boolean}>(`/api/interviews/${id}/audio`)
           if (audioData && audioData.audio_url) {
-            // Ensure the URL is absolute
+            // Ensure the URL is absolute and points to the backend
             let url = audioData.audio_url;
+            // Make sure to use the backend URL as base
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             if (url.startsWith('/')) {
-              // Convert to absolute URL
-              const baseUrl = window.location.origin;
               url = `${baseUrl}${url}`;
             }
             console.log("Setting audio URL:", url);
@@ -142,8 +158,9 @@ export default function InterviewDetailPage() {
     }
   }
 
-  const handleSegmentClick = (index: number) => {
+  const handleSegmentClick = (segment: TranscriptSegment, index: number) => {
     setSelectedSegmentIndex(index)
+    setSelectedSegment(segment)
   }
 
   if (isLoading) {
@@ -166,9 +183,11 @@ export default function InterviewDetailPage() {
         <main className="flex-1 space-y-4 p-8 pt-6">
           <div className="flex flex-col items-center justify-center p-8">
             <h2 className="text-xl font-semibold mb-4">Interview not found</h2>
-            <Button as={Link} href="/interviews">
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Back to Interviews
+            <Button asChild>
+              <Link href="/interviews">
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back to Interviews
+              </Link>
             </Button>
           </div>
         </main>
@@ -198,22 +217,38 @@ export default function InterviewDetailPage() {
             {interview.status === InterviewStatus.UPLOADED && (
               <Button 
                 onClick={processAudio} 
-                isLoading={isProcessing}
-                loadingText="Processing"
+                disabled={isProcessing}
               >
-                <Cog className="mr-2 h-4 w-4" />
-                Process Audio
+                {isProcessing ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                    Processing
+                  </>
+                ) : (
+                  <>
+                    <Cog className="mr-2 h-4 w-4" />
+                    Process Audio
+                  </>
+                )}
               </Button>
             )}
             
             {interview.status === InterviewStatus.PROCESSED && (
               <Button 
                 onClick={transcribeAudio} 
-                isLoading={isTranscribing}
-                loadingText="Transcribing"
+                disabled={isTranscribing}
               >
-                <FileText className="mr-2 h-4 w-4" />
-                Transcribe
+                {isTranscribing ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                    Transcribing
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Transcribe
+                  </>
+                )}
               </Button>
             )}
 
@@ -240,12 +275,27 @@ export default function InterviewDetailPage() {
           </TabsList>
           <TabsContent value="transcript" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
+              {audioUrl && (
+                <div className="flex flex-col">
+                  <h3 className="text-lg font-medium mb-2">Audio</h3>
+                  <AudioPlayer 
+                    src={audioUrl}
+                    title={interview.title}
+                    onTimeUpdate={setCurrentTime}
+                    currentSegment={selectedSegment}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
               <TranscriptViewer 
                 interviewId={id as string}
-                transcriptText={interview.transcription || ''}
-                segments={interview.transcript_segments}
+                transcriptText={(interview?.transcription) || ''}
+                segments={interview?.transcript_segments || []}
                 highlightedSegmentIndex={selectedSegmentIndex}
                 audioUrl={audioUrl}
+                onSegmentClick={handleSegmentClick}
+                currentTime={currentTime}
                 className="h-[calc(100vh-280px)]"
               />
               
@@ -279,8 +329,8 @@ export default function InterviewDetailPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <TranscriptViewer 
                 interviewId={id as string}
-                transcriptText={interview.transcription || ''}
-                segments={interview.transcript_segments}
+                transcriptText={interview?.transcription || ''}
+                segments={interview?.transcript_segments || []}
                 highlightedSegmentIndex={selectedSegmentIndex}
                 audioUrl={audioUrl}
                 className="h-[calc(100vh-280px)]"

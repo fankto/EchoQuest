@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,11 @@ type TranscriptSegment = {
   start_time: number
   end_time: number
   speaker: string
+  words?: Array<{
+    word: string;
+    start: number;
+    end: number;
+  }>
 }
 
 type TranscriptViewerProps = {
@@ -24,7 +29,8 @@ type TranscriptViewerProps = {
   audioUrl?: string
   searchQuery?: string
   highlightedSegmentIndex?: number
-  onSegmentClick?: (segment: TranscriptSegment) => void
+  onSegmentClick?: (segment: TranscriptSegment, index: number) => void
+  currentTime?: number
   className?: string
 }
 
@@ -36,25 +42,60 @@ export function TranscriptViewer({
   searchQuery = '',
   highlightedSegmentIndex,
   onSegmentClick,
+  currentTime = 0,
   className,
 }: TranscriptViewerProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedText, setEditedText] = useState(transcriptText)
   const [originalText] = useState(transcriptText)
-  const [activeTab, setActiveTab] = useState<string>('transcript')
+  const [activeTab, setActiveTab] = useState<string>('segments')
   const segmentRefs = useRef<Map<number, HTMLElement>>(new Map())
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState<number | undefined>(undefined)
+  
+  // Automatically switch to segments tab if segments are available
+  useEffect(() => {
+    if (segments && segments.length > 0 && activeTab === 'transcript') {
+      setActiveTab('segments')
+    }
+  }, [segments, activeTab])
+
+  useEffect(() => {
+    // Find the current segment based on audio playback time
+    if (currentTime > 0 && segments) {
+      const index = segments.findIndex(segment => 
+        currentTime >= segment.start_time && currentTime <= segment.end_time
+      )
+      
+      if (index !== -1 && index !== currentSegmentIndex) {
+        setCurrentSegmentIndex(index)
+        
+        // Scroll to the segment in view if we're on segments tab
+        if (activeTab === 'segments') {
+          const segmentElement = segmentRefs.current.get(index)
+          segmentElement?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          })
+        }
+      }
+    }
+  }, [currentTime, segments, currentSegmentIndex, activeTab])
 
   useEffect(() => {
     // Focus highlighted segment when it changes
-    if (highlightedSegmentIndex !== undefined && segments[highlightedSegmentIndex]) {
+    if (highlightedSegmentIndex !== undefined && segments && segments[highlightedSegmentIndex]) {
+      setCurrentSegmentIndex(highlightedSegmentIndex)
+      
       const segmentElement = segmentRefs.current.get(highlightedSegmentIndex)
       segmentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       
       // If audio is available, seek to the segment's start time
       if (audioRef.current && segments[highlightedSegmentIndex].start_time) {
         audioRef.current.currentTime = segments[highlightedSegmentIndex].start_time
-        audioRef.current.play()
+        audioRef.current.play().catch(error => {
+          console.error("Failed to play segment:", error)
+        })
       }
     }
   }, [highlightedSegmentIndex, segments])
@@ -89,11 +130,32 @@ export function TranscriptViewer({
     return text.replace(regex, '<mark>$1</mark>')
   }
 
-  const playSegmentAudio = (segment: TranscriptSegment) => {
+  const playSegmentAudio = (segment: TranscriptSegment, index: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation()
+    }
+    
     if (audioRef.current && segment.start_time) {
       audioRef.current.currentTime = segment.start_time
-      audioRef.current.play()
+      audioRef.current.play().catch(error => {
+        console.error("Failed to play segment:", error)
+        toast.error("Failed to play segment audio")
+      })
     }
+    
+    if (onSegmentClick) {
+      onSegmentClick(segment, index)
+    }
+  }
+  
+  // Get segment class based on its state (highlighted, current playing)
+  const getSegmentClassName = (index: number) => {
+    return cn(
+      "p-3 rounded-md border transition-colors mb-3",
+      (index === highlightedSegmentIndex || index === currentSegmentIndex)
+        ? "bg-muted/50 border-primary"
+        : "hover:bg-muted/30"
+    )
   }
 
   return (
@@ -119,7 +181,7 @@ export function TranscriptViewer({
       </CardHeader>
       
       {audioUrl && (
-        <div className="p-2 border-b">
+        <div className="p-2 border-b hidden">
           <audio 
             ref={audioRef} 
             src={audioUrl} 
@@ -137,78 +199,31 @@ export function TranscriptViewer({
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
           <div className="border-b">
             <TabsList className="px-4 bg-transparent">
-              <TabsTrigger value="transcript">Full Transcript</TabsTrigger>
               {segments && segments.length > 0 && (
                 <TabsTrigger value="segments">Segments</TabsTrigger>
               )}
+              <TabsTrigger value="transcript">Full Transcript</TabsTrigger>
             </TabsList>
           </div>
           
-          <TabsContent value="transcript" className="flex-1 overflow-hidden m-0 data-[state=active]:h-full">
-            {isEditing ? (
-              <textarea
-                value={editedText}
-                onChange={(e) => setEditedText(e.target.value)}
-                className="w-full h-full p-4 resize-none focus:outline-none border-0"
-                aria-label="Edit transcript"
-                placeholder="Enter transcript text"
-              />
-            ) : (
-              <ScrollArea className="h-full p-4">
-                {transcriptText ? (
-                  <div 
-                    className="whitespace-pre-wrap"
-                  >
-                    {searchQuery ? (
-                      <>
-                        {transcriptText.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
-                          part.toLowerCase() === searchQuery.toLowerCase() 
-                            ? <mark key={`transcript-mark-${i}-${part}`}>{part}</mark> 
-                            : part
-                        )}
-                      </>
-                    ) : (
-                      transcriptText
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                      <Search className="h-10 w-10 text-muted-foreground" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold">
-                      No transcript available
-                    </h3>
-                    <p className="mt-2 text-center text-sm text-muted-foreground max-w-sm">
-                      Process and transcribe your interview audio to view the transcript.
-                    </p>
-                  </div>
-                )}
-              </ScrollArea>
-            )}
-          </TabsContent>
-          
           <TabsContent value="segments" className="flex-1 overflow-hidden m-0 data-[state=active]:h-full">
             <ScrollArea className="h-full">
-              {segments.length > 0 ? (
-                <div className="space-y-4 p-4">
+              {segments && segments.length > 0 ? (
+                <div className="space-y-0 p-4">
                   {segments.map((segment, index) => (
                     <button 
-                      type="button"
                       key={segment.start_time ? `segment-${segment.start_time}-${index}` : `segment-${index}`}
                       ref={el => {
                         if (el) segmentRefs.current.set(index, el)
                       }}
-                      className={cn(
-                        "p-3 rounded-md border w-full text-left",
-                        highlightedSegmentIndex === index && "bg-muted/50 border-primary"
-                      )}
-                      onClick={() => onSegmentClick?.(segment)}
-                      aria-label={`Transcript segment by ${segment.speaker}`}
+                      className={`${getSegmentClassName(index)} w-full text-left`}
+                      onClick={() => playSegmentAudio(segment, index)}
+                      aria-label={`Play segment ${index + 1}`}
+                      type="button"
                     >
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <Badge variant="outline">
-                          {segment.speaker}
+                        <Badge variant="outline" className="font-mono">
+                          {segment.speaker || `Speaker ${Math.floor(index/3) + 1}`}
                         </Badge>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">
@@ -219,17 +234,15 @@ export function TranscriptViewer({
                               variant="ghost" 
                               size="icon" 
                               className="h-6 w-6" 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                playSegmentAudio(segment)
-                              }}
+                              onClick={(e) => playSegmentAudio(segment, index, e)}
+                              title="Play segment"
                             >
                               <PlayCircle className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                       </div>
-                      <div>
+                      <div className="text-sm">
                         {searchQuery ? (
                           <>
                             {segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
@@ -259,6 +272,50 @@ export function TranscriptViewer({
                 </div>
               )}
             </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="transcript" className="flex-1 overflow-hidden m-0 data-[state=active]:h-full">
+            {isEditing ? (
+              <textarea
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+                className="w-full h-full p-4 resize-none focus:outline-none border-0"
+                aria-label="Edit transcript"
+                placeholder="Enter transcript text"
+              />
+            ) : (
+              <ScrollArea className="h-full p-4">
+                {transcriptText ? (
+                  <div 
+                    className="whitespace-pre-wrap"
+                  >
+                    {searchQuery ? (
+                      <>
+                        {transcriptText.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
+                          part.toLowerCase() === searchQuery.toLowerCase() 
+                            ? <mark key={`transcript-mark-${i}-${part.substring(0, 10)}`}>{part}</mark> 
+                            : part
+                        )}
+                      </>
+                    ) : (
+                      transcriptText
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+                      <Search className="h-10 w-10 text-muted-foreground" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold">
+                      No transcript available
+                    </h3>
+                    <p className="mt-2 text-center text-sm text-muted-foreground max-w-sm">
+                      Process and transcribe your interview audio to view the transcript.
+                    </p>
+                  </div>
+                )}
+              </ScrollArea>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider'
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '@/lib/format'
+import { toast } from 'sonner'
 
 interface AudioPlayerProps {
   src: string
@@ -14,6 +15,12 @@ interface AudioPlayerProps {
   onTimeUpdate?: (currentTime: number) => void
   className?: string
   initialTime?: number
+  currentSegment?: {
+    start_time: number,
+    end_time: number,
+    text: string,
+    speaker: string
+  }
 }
 
 export function AudioPlayer({
@@ -22,6 +29,7 @@ export function AudioPlayer({
   onTimeUpdate,
   className,
   initialTime = 0,
+  currentSegment,
 }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [duration, setDuration] = useState(0)
@@ -29,8 +37,17 @@ export function AudioPlayer({
   const [volume, setVolume] = useState(1)
   const [isMuted, setIsMuted] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   
   const audioRef = useRef<HTMLAudioElement>(null)
+  
+  // Log the source when it changes for debugging
+  useEffect(() => {
+    console.log("Audio source:", src);
+    if (src) {
+      setError(null);
+    }
+  }, [src]);
   
   // Set initial time when the component mounts
   useEffect(() => {
@@ -46,17 +63,24 @@ export function AudioPlayer({
       if (isPlaying) {
         audioRef.current.pause()
       } else {
-        audioRef.current.play()
+        audioRef.current.play().catch(e => {
+          console.error("Error playing audio:", e);
+          setError(`Unable to play audio: ${e.message}`);
+          toast.error("Audio playback failed", {
+            description: e.message,
+          });
+        })
       }
-      setIsPlaying(!isPlaying)
     }
   }
   
   // Handle audio events
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
+      console.log("Audio loaded, duration:", audioRef.current.duration);
       setDuration(audioRef.current.duration)
       setIsLoaded(true)
+      setError(null)
     }
   }
   
@@ -120,6 +144,29 @@ export function AudioPlayer({
     }
   }
   
+  // Handle errors
+  const handleError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+    const errorMessage = (e.currentTarget.error?.message || "Unknown audio error");
+    console.error("Audio error:", errorMessage);
+    setError(`Audio error: ${errorMessage}`);
+    setIsLoaded(false);
+    toast.error("Audio playback error", {
+      description: errorMessage,
+    });
+  }
+  
+  // Play segment when currentSegment changes
+  useEffect(() => {
+    if (audioRef.current && currentSegment) {
+      console.log("Playing segment:", currentSegment);
+      audioRef.current.currentTime = currentSegment.start_time;
+      audioRef.current.play().catch(e => {
+        console.error("Error playing segment:", e);
+        setError(`Unable to play segment: ${e.message}`);
+      });
+    }
+  }, [currentSegment]);
+  
   // Cleanup
   useEffect(() => {
     return () => {
@@ -132,6 +179,12 @@ export function AudioPlayer({
   return (
     <Card className={cn("overflow-hidden", className)}>
       <CardContent className="p-4">
+        {error && (
+          <div className="mb-2 p-2 bg-red-50 text-red-600 rounded-md text-sm">
+            {error}
+          </div>
+        )}
+        
         <audio
           ref={audioRef}
           src={src}
@@ -140,7 +193,11 @@ export function AudioPlayer({
           onEnded={() => setIsPlaying(false)}
           onPause={() => setIsPlaying(false)}
           onPlay={() => setIsPlaying(true)}
-        />
+          onError={handleError}
+          crossOrigin="anonymous"
+        >
+          <track kind="captions" src="" label="English captions" />
+        </audio>
         
         {title && (
           <div className="mb-2 text-sm font-medium truncate">{title}</div>
@@ -229,22 +286,5 @@ export function AudioPlayer({
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function Slider({
-  className,
-  ...props
-}: React.ComponentProps<typeof Slider>) {
-  return (
-    <div className={cn("w-full relative", className)}>
-      <div className="h-2 w-full relative flex items-center">
-        <div className="h-1 w-full bg-secondary rounded-md" />
-        <Slider
-          {...props}
-          className="absolute inset-0"
-        />
-      </div>
-    </div>
   )
 }

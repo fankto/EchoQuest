@@ -217,9 +217,10 @@ class TranscriptionService:
             
             # Open file
             with open(file_path, "rb") as audio_file:
-                # Prepare options for OpenAI API
+                # Prepare options for OpenAI API with improved configuration
                 options = {
                     "response_format": "verbose_json",
+                    "timestamp_granularities": ["segment", "word"],  # Get both segment and word timestamps
                 }
                 
                 if language:
@@ -232,31 +233,77 @@ class TranscriptionService:
                     lambda: openai.Audio.transcribe("whisper-1", audio_file, **options)
                 )
             
-            # Extract segments
+            # Extract segments with speaker identification
             segments = []
+            speaker_map = {}  # Map to ensure consistent speaker labels
+            speaker_counter = 1
+            
             if "segments" in response:
+                # Extract longer segments by combining short ones
+                min_segment_duration = 5.0  # Minimum segment duration in seconds
+                current_segment = None
+                
                 for segment in response["segments"]:
-                    segments.append({
-                        "text": segment["text"],
-                        "start_time": segment["start"],
-                        "end_time": segment["end"],
-                        "speaker": "Speaker",  # Default speaker label
-                    })
+                    segment_text = segment["text"].strip()
+                    segment_start = segment["start"]
+                    segment_end = segment["end"]
+                    segment_duration = segment_end - segment_start
+                    
+                    # Speaker identification - in this demo, we'll alternate speakers
+                    # In a real implementation, you'd need to implement or integrate a proper
+                    # speaker diarization model or service here
+                    
+                    # Simple approach: alternate speakers based on longer pauses
+                    # or assign based on segment index for demo purposes
+                    speaker_id = (len(segments) // 2) % 2 + 1
+                    
+                    # Get word-level data if available
+                    words = segment.get("words", [])
+                    
+                    if current_segment is None:
+                        # Start a new segment
+                        current_segment = {
+                            "text": segment_text,
+                            "start_time": segment_start,
+                            "end_time": segment_end,
+                            "speaker": f"Speaker {speaker_id}",
+                            "words": words
+                        }
+                    elif segment_duration < min_segment_duration and (current_segment["end_time"] - current_segment["start_time"]) < 30.0:
+                        # If segment is short and current accumulated segment isn't too long, combine them
+                        current_segment["text"] += " " + segment_text
+                        current_segment["end_time"] = segment_end
+                        current_segment["words"].extend(words)
+                    else:
+                        # Finalize current segment and start a new one
+                        segments.append(current_segment)
+                        current_segment = {
+                            "text": segment_text,
+                            "start_time": segment_start,
+                            "end_time": segment_end,
+                            "speaker": f"Speaker {speaker_id}",
+                            "words": words
+                        }
+                
+                # Add the last segment if it exists
+                if current_segment:
+                    segments.append(current_segment)
             else:
                 # Fallback if no segments are available
                 segments.append({
                     "text": response["text"],
                     "start_time": 0,
                     "end_time": duration,
-                    "speaker": "Speaker",  # Default speaker label
+                    "speaker": "Speaker 1",
+                    "words": []
                 })
             
             return segments, duration
         except Exception as e:
             logger.error(f"Error transcribing file {file_path}: {e}")
-            # Create a mock transcript with the error message for debugging
+            # Create error segments
             segments = [{
-                "text": f"Error during transcription: {str(e)}. Please check backend logs and ensure OpenAI API key is configured correctly.",
+                "text": f"Error transcribing audio: {str(e)}",
                 "start_time": 0,
                 "end_time": 10,
                 "speaker": "System",
