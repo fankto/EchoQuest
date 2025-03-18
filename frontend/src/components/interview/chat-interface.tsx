@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import TextareaAutosize from 'react-textarea-autosize'
 import { Button } from '@/components/ui/button'
@@ -44,7 +44,12 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<string>('')
   const prevMessagesLengthRef = useRef<number>(0)
+  const lastContentRef = useRef<string>('')
+  const activeTabRef = useRef<boolean>(true)
   const router = useRouter()
+  
+  // Use a custom key to force remount when interviewId changes
+  const chatKey = useMemo(() => `chat-${interviewId}`, [interviewId]);
   
   const { 
     messages, 
@@ -69,6 +74,18 @@ export function ChatInterface({
     }
   })
 
+  // Track visibility in case the component is mounted but not visible (e.g., in a hidden tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      activeTabRef.current = document.visibilityState === 'visible';
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // Function to scroll to bottom
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -87,19 +104,38 @@ export function ChatInterface({
   
   // Handle streaming message updates efficiently
   useEffect(() => {
-    if (streamingMessage && streamingMessage.content !== contentRef.current) {
-      contentRef.current = streamingMessage.content
-      scrollToBottom()
-    } else if (!streamingMessage) {
-      // Reset content ref when streaming is done
-      contentRef.current = ''
+    // Skip if there's no streaming message
+    if (!streamingMessage) {
+      if (contentRef.current !== '') {
+        contentRef.current = '';
+      }
+      return;
     }
-  }, [streamingMessage, scrollToBottom])
+    
+    const currentContent = streamingMessage.content;
+    
+    // Only update if the content has actually changed to avoid loops
+    if (currentContent !== lastContentRef.current) {
+      lastContentRef.current = currentContent;
+      contentRef.current = currentContent;
+      scrollToBottom();
+    }
+  }, [streamingMessage, scrollToBottom]);
+
+  // Clean up resources on unmount or when interviewId changes
+  useEffect(() => {
+    return () => {
+      // Reset all refs when component unmounts or interviewId changes
+      contentRef.current = '';
+      prevMessagesLengthRef.current = 0;
+      lastContentRef.current = '';
+    };
+  }, []); // No dependencies needed as we're just cleaning up on unmount
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!input.trim()) return
+    if (!input.trim() || isLoading) return;
     
     setInput('')
     
@@ -116,7 +152,7 @@ export function ChatInterface({
     : 100
 
   return (
-    <div className="flex flex-col h-[600px] border rounded-md">
+    <div className="flex flex-col h-[600px] border rounded-md" key={chatKey}>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(message => (
           <div

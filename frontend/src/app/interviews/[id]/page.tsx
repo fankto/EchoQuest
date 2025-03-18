@@ -35,6 +35,17 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 
+// Helper component to only render children when needed
+type LazyLoadComponentProps = {
+  children: React.ReactNode;
+  check: boolean;
+}
+
+function LazyLoadComponent({ children, check }: LazyLoadComponentProps) {
+  if (!check) return null;
+  return <>{children}</>;
+}
+
 export default function InterviewDetailPage() {
   const { id } = useParams()
   const [interview, setInterview] = useState<InterviewType | null>(null)
@@ -936,6 +947,7 @@ export default function InterviewDetailPage() {
               Chat
             </TabsTrigger>
           </TabsList>
+          
           <TabsContent value="transcript" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               {audioUrl && (
@@ -975,18 +987,21 @@ export default function InterviewDetailPage() {
                 className="h-[calc(100vh-280px)]"
               />
               
-              <ChatInterface 
-                interviewId={id as string} 
-                interviewTitle={interview.title}
-                transcriptHighlights={{
-                  highlightedText: interview?.transcript_segments?.map(s => `${s.text.substring(0, 60)}...`),
-                  onHighlightClick: (index: number) => {
-                    if (interview?.transcript_segments?.[index]) {
-                      handleSegmentClick(interview.transcript_segments[index], index);
+              {/* We need a separate element with an effect to conditionally render ChatInterface */}
+              <LazyLoadComponent check={!!interview.transcription}>
+                <ChatInterface 
+                  interviewId={id as string} 
+                  interviewTitle={interview.title}
+                  transcriptHighlights={{
+                    highlightedText: interview?.transcript_segments?.map(s => `${s.text.substring(0, 60)}...`),
+                    onHighlightClick: (index: number) => {
+                      if (interview?.transcript_segments?.[index]) {
+                        handleSegmentClick(interview.transcript_segments[index], index);
+                      }
                     }
-                  }
-                }}
-              />
+                  }}
+                />
+              </LazyLoadComponent>
             </div>
           </TabsContent>
         </Tabs>
