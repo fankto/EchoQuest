@@ -354,6 +354,33 @@ export function TranscriptViewer({
     )
   }
 
+  // Handle tab changes to reset segment selection when viewing full transcript
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    
+    // If switching to full transcript, clear the segment selection
+    if (value === 'transcript' && onSegmentClick && currentSegmentIndex !== undefined) {
+      console.log('Switching to full transcript view, clearing segment selection');
+      // Call onSegmentClick with null to indicate no segment is selected
+      setTimeout(() => {
+        setCurrentSegmentIndex(undefined);
+        // Use a special callback to clear the segment in the parent component
+        if (onSegmentClick) {
+          // Pass a null segment with special flag to clear the selection
+          const clearSegment: TranscriptSegment = {
+            text: '',
+            start_time: 0,
+            end_time: 0,
+            speaker: '',
+            // Special flag to indicate this is a clear request
+            words: []
+          };
+          onSegmentClick(clearSegment, -1);
+        }
+      }, 50);
+    }
+  };
+
   return (
     <Card className={cn("flex flex-col h-full", className)}>
       <CardHeader className="px-4 py-3 flex-col sm:flex-row gap-1 space-y-0 justify-between border-b">
@@ -392,7 +419,7 @@ export function TranscriptViewer({
       )}
       
       <CardContent className="p-0 flex-1 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full">
           <div className="border-b">
             <TabsList className="px-4 bg-transparent">
               {segments && segments.length > 0 && (

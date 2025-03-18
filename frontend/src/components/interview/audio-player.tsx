@@ -270,6 +270,22 @@ export function AudioPlayer({
     });
   }
   
+  // Reset to full audio mode when segment is cleared
+  useEffect(() => {
+    // When currentSegment changes to null or undefined
+    if (audioRef.current && currentSegment === undefined) {
+      console.log("Audio player: Segment selection cleared, reverting to full audio mode");
+      
+      // Pause any current playback
+      audioRef.current.pause();
+      
+      // Reset any state related to segment playback
+      setIsPlaying(false);
+      
+      // Do not reset currentTime as it could be useful to keep the position
+    }
+  }, [currentSegment]);
+  
   // Play segment when currentSegment changes
   useEffect(() => {
     if (!audioRef.current || !currentSegment) return;
@@ -277,7 +293,7 @@ export function AudioPlayer({
     // Debug the currentSegment to help identify any issues
     console.log("===== AudioPlayer: Segment Change Debug =====");
     console.log("Current Segment Speaker:", currentSegment.speaker);
-    console.log("Current Segment Text:", currentSegment.text.substring(0, 30) + "...");
+    console.log(`Current Segment Text: ${currentSegment.text.substring(0, 30)}...`);
     console.log("Current Segment Time Range:", 
       `${currentSegment.start_time.toFixed(3)} - ${currentSegment.end_time.toFixed(3)}`);
     
@@ -464,6 +480,42 @@ export function AudioPlayer({
                 // Use existing logic for handling time changes
                 handleSliderChange([clickedTime]);
               }}
+              onKeyDown={(e) => {
+                // Handle keyboard navigation for accessibility
+                if (!isLoaded || !audioRef.current) return;
+                
+                const min = currentSegment ? currentSegment.start_time : 0;
+                const max = currentSegment ? currentSegment.end_time : (duration || 100);
+                const step = (max - min) / 20; // 5% increments
+                let newTime = currentTime;
+                
+                switch (e.key) {
+                  case 'ArrowRight':
+                    newTime = Math.min(currentTime + step, max);
+                    break;
+                  case 'ArrowLeft':
+                    newTime = Math.max(currentTime - step, min);
+                    break;
+                  case 'Home':
+                    newTime = min;
+                    break;
+                  case 'End':
+                    newTime = max;
+                    break;
+                  default:
+                    return; // Don't handle other keys
+                }
+                
+                e.preventDefault();
+                console.log(`Slider keyboard navigation: ${newTime.toFixed(2)}`);
+                handleSliderChange([newTime]);
+              }}
+              role="slider"
+              tabIndex={0}
+              aria-valuemin={currentSegment ? currentSegment.start_time : 0}
+              aria-valuemax={currentSegment ? currentSegment.end_time : (duration || 100)}
+              aria-valuenow={currentTime}
+              aria-label="Audio progress"
             >
               <Slider
                 // Constrain value to segment bounds if in a segment
