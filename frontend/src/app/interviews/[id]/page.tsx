@@ -246,15 +246,97 @@ export default function InterviewDetailPage() {
       await api.post(endpoint)
       
       toast.success('Answer generation started')
-      await fetchInterview()
+      
+      // Start polling for answer generation completion with better error handling
+      let pollingAttempts = 0;
+      const maxPollingAttempts = 24; // 2 minutes with 5s intervals
+      const pollDelay = 5000; // 5 seconds between polls
+      
+      // Function for a single poll attempt
+      const pollOnce = async () => {
+        try {
+          pollingAttempts++;
+          console.log(`Polling attempt ${pollingAttempts}/${maxPollingAttempts}`);
+          
+          const updatedData = await api.get<InterviewType>(`/api/interviews/${id}`);
+          
+          // Check if the generation completed
+          if (updatedData) {
+            const generatedAnswers = updatedData.generated_answers || {};
+            let hasAnswers = false;
+            
+            // Check if we have answers for the specific questionnaire
+            if (targetId && generatedAnswers[targetId]) {
+              hasAnswers = true;
+            } 
+            // For bulk generation, check if we have answers for any questionnaire
+            else if (!targetId && Object.keys(generatedAnswers).length > 0) {
+              hasAnswers = true;
+            }
+            
+            if (hasAnswers) {
+              // Generation complete
+              setInterview(updatedData);
+              if (targetId) {
+                setIsGeneratingAnswers(prev => ({ ...prev, [targetId]: false }));
+              } else {
+                setIsLoading(false);
+              }
+              toast.success('Answers generated successfully');
+              return true;
+            }
+          }
+          return false;
+        } catch (error) {
+          console.error('Error polling for answer generation:', error);
+          return false;
+        }
+      };
+      
+      // Start polling
+      const doPoll = async () => {
+        // If we've reached the max attempts, stop polling
+        if (pollingAttempts >= maxPollingAttempts) {
+          if (targetId) {
+            setIsGeneratingAnswers(prev => ({ ...prev, [targetId]: false }));
+          } else {
+            setIsLoading(false);
+          }
+          // Try one final fetch
+          await fetchInterview();
+          return;
+        }
+        
+        // Attempt a poll
+        const success = await pollOnce();
+        
+        // If successful, we're done
+        if (success) return;
+        
+        // Otherwise, schedule the next poll
+        setTimeout(doPoll, pollDelay);
+      };
+      
+      // Start the polling process
+      doPoll();
+      
     } catch (error) {
-      toast.error('Failed to start answer generation')
-    } finally {
+      console.error('Failed to generate answers:', error);
+      toast.error('Failed to start answer generation');
       if (questionnaireId) {
-        setIsGeneratingAnswers(prev => ({ ...prev, [questionnaireId]: false }))
+        setIsGeneratingAnswers(prev => ({ ...prev, [questionnaireId]: false }));
       } else {
-        setIsLoading(false)
+        setIsLoading(false);
       }
+      
+      // Try to fetch the latest interview state even after error
+      setTimeout(async () => {
+        try {
+          await fetchInterview();
+        } catch (fetchError) {
+          console.error('Failed to fetch interview after error:', fetchError);
+        }
+      }, 2000);
     }
   }
 
@@ -649,17 +731,25 @@ export default function InterviewDetailPage() {
                         
                         <div className="p-4 bg-card">
                           {questionnaire.questions?.length > 0 ? (
-                            <div className="grid gap-2">
-                              {questionnaire.questions.map((question, index) => (
-                                <div key={`question-${questionnaire.id}-${index}`} className="flex justify-between items-start gap-2 text-sm">
-                                  <p className="font-medium text-card-foreground">{question}</p>
-                                  <div className="text-xs px-2 py-1 rounded-full bg-muted flex-shrink-0">
-                                    {interview.generated_answers?.[questionnaire.id]?.[question] 
-                                      ? 'Answered' 
-                                      : 'Pending'}
+                            <div className="grid gap-4">
+                              {questionnaire.questions.map((question, index) => {
+                                const hasAnswer = interview.generated_answers?.[questionnaire.id]?.[question];
+                                return (
+                                  <div key={`question-${questionnaire.id}-${index}`} className="border-b pb-4 last:border-b-0 last:pb-0">
+                                    <div className="flex justify-between items-start gap-2 mb-2">
+                                      <p className="font-medium text-card-foreground">{question}</p>
+                                      <div className={`text-xs px-2 py-1 rounded-full ${hasAnswer ? 'bg-primary/20 text-primary-foreground' : 'bg-muted'} flex-shrink-0`}>
+                                        {hasAnswer ? 'Answered' : 'Pending'}
+                                      </div>
+                                    </div>
+                                    {hasAnswer && (
+                                      <div className="mt-2 ml-4 pl-2 border-l-2 border-primary/30">
+                                        <p className="text-sm text-muted-foreground whitespace-pre-line">{interview.generated_answers?.[questionnaire.id]?.[question]}</p>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           ) : (
                             <p className="text-sm text-muted-foreground">No questions found in this questionnaire</p>
@@ -730,17 +820,25 @@ export default function InterviewDetailPage() {
                       
                       <div className="p-4 bg-card">
                         {interview.questionnaire?.questions ? (
-                          <div className="grid gap-2">
-                            {interview.questionnaire.questions.map((question, index) => (
-                              <div key={`question-${interview.questionnaire?.id}-${index}`} className="flex justify-between items-start gap-2 text-sm">
-                                <p className="font-medium text-card-foreground">{question}</p>
-                                <div className="text-xs px-2 py-1 rounded-full bg-muted flex-shrink-0">
-                                  {interview.generated_answers?.[interview.questionnaire?.id || '']?.[question] 
-                                    ? 'Answered' 
-                                    : 'Pending'}
+                          <div className="grid gap-4">
+                            {interview.questionnaire.questions.map((question, index) => {
+                              const hasAnswer = interview.generated_answers?.[interview.questionnaire?.id || '']?.[question];
+                              return (
+                                <div key={`question-${interview.questionnaire?.id}-${index}`} className="border-b pb-4 last:border-b-0 last:pb-0">
+                                  <div className="flex justify-between items-start gap-2 mb-2">
+                                    <p className="font-medium text-card-foreground">{question}</p>
+                                    <div className={`text-xs px-2 py-1 rounded-full ${hasAnswer ? 'bg-primary/20 text-primary-foreground' : 'bg-muted'} flex-shrink-0`}>
+                                      {hasAnswer ? 'Answered' : 'Pending'}
+                                    </div>
+                                  </div>
+                                  {hasAnswer && (
+                                    <div className="mt-2 ml-4 pl-2 border-l-2 border-primary/30">
+                                      <p className="text-sm text-muted-foreground whitespace-pre-line">{interview.generated_answers?.[interview.questionnaire?.id || '']?.[question]}</p>
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">No questions found in this questionnaire</p>
@@ -863,49 +961,6 @@ export default function InterviewDetailPage() {
                 currentTime={currentTime}
                 className="h-[calc(100vh-280px)]"
               />
-              
-              <div className="space-y-4">
-                {interview.generated_answers && Object.keys(interview.generated_answers).length > 0 ? (
-                  <div className="border rounded-md p-4 h-[calc(100vh-280px)] overflow-auto">
-                    <h3 className="text-lg font-semibold mb-4">Generated Answers</h3>
-                    
-                    {Object.entries(interview.generated_answers).map(([questionnaireId, answers]) => {
-                      // Find the questionnaire title if available
-                      const questionnaire = interview.questionnaires?.find(q => q.id === questionnaireId) || 
-                                            (interview.questionnaire?.id === questionnaireId ? interview.questionnaire : null);
-                      
-                      return (
-                        <div key={`questionnaire-${questionnaireId}`} className="mb-6">
-                          {questionnaire && (
-                            <h4 className="text-md font-medium mb-3 pb-2 border-b">
-                              Questionnaire: {questionnaire.title}
-                            </h4>
-                          )}
-                          
-                          <div className="space-y-6">
-                            {Object.entries(answers).map(([question, answer]) => (
-                              <div key={`qa-${questionnaireId}-${question.substring(0, 20)}`} className="space-y-2">
-                                <h4 className="text-md font-medium">{question}</h4>
-                                <p className="text-muted-foreground whitespace-pre-line">{answer}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="border rounded-md p-4 h-[calc(100vh-280px)] flex flex-col items-center justify-center">
-                    <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold">{interview.questionnaire ? 'No Answers Generated Yet' : 'No Questionnaire Selected'}</h3>
-                    <p className="text-center text-muted-foreground mt-2 max-w-md">
-                      {interview.questionnaire 
-                        ? 'Click "Generate Answers" to analyze the transcript with your questionnaire.'
-                        : 'Add a questionnaire to generate answers based on the transcript.'}
-                    </p>
-                  </div>
-                )}
-              </div>
             </div>
           </TabsContent>
           

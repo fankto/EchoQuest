@@ -80,7 +80,7 @@ class InterviewDetailOut(InterviewOut):
     """Interview detail output schema with transcription and answers"""
     transcription: Optional[str] = None
     transcript_segments: Optional[List[TranscriptSegment]] = None
-    generated_answers: Optional[Dict[str, str]] = None
+    generated_answers: Optional[Dict[str, Dict[str, str]]] = None
     
     class Config:
         from_attributes = True

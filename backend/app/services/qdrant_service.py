@@ -9,6 +9,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.http.models import Filter, PointStruct
 import asyncio
 import random
+from openai import AsyncOpenAI
 
 from app.core.config import settings
 
@@ -19,9 +20,9 @@ class QdrantService:
     def __init__(self):
         self.client = QdrantClient(url=settings.QDRANT_URL)
         self.collection_name = settings.QDRANT_COLLECTION_NAME
-        openai.api_key = settings.OPENAI_API_KEY
-        self.has_valid_api_key = bool(openai.api_key) and not (isinstance(openai.api_key, str) and 
-                                 (openai.api_key.startswith("your-") or not openai.api_key.strip()))
+        self.openai_api_key = settings.OPENAI_API_KEY
+        self.has_valid_api_key = bool(self.openai_api_key) and not (isinstance(self.openai_api_key, str) and 
+                                 (self.openai_api_key.startswith("your-") or not self.openai_api_key.strip()))
         if not self.has_valid_api_key:
             logger.warning("OpenAI API key is not properly configured. RAG functionality will be limited.")
     
@@ -55,16 +56,13 @@ class QdrantService:
                 logger.warning("Using mock embeddings as OpenAI API key is not configured properly")
                 return [self._generate_mock_embedding() for _ in texts]
                 
-            # Using v0.28.1 API style instead of the newer embeddings.create()
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: openai.Embedding.create(
-                    model=settings.OPENAI_EMBEDDING_MODEL,
-                    input=texts,
-                )
+            # Using new v1.0.0+ API with AsyncOpenAI client
+            client = AsyncOpenAI(api_key=self.openai_api_key)
+            response = await client.embeddings.create(
+                model=settings.OPENAI_EMBEDDING_MODEL,
+                input=texts
             )
-            return [item['embedding'] for item in response['data']]
+            return [item.embedding for item in response.data]
         except Exception as e:
             logger.error(f"Error creating embeddings: {e}")
             # Fallback to mock embeddings
