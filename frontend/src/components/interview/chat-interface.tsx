@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import TextareaAutosize from 'react-textarea-autosize'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Icons } from '@/components/ui/icons'
 import { formatTokens } from '@/lib/format'
 import api from '@/lib/api-client'
 import { toast } from 'sonner'
+import { useChat } from '@/hooks/use-chat'
 
 type Message = {
   id: string
@@ -39,66 +40,24 @@ export function ChatInterface({
   interviewTitle,
   transcriptHighlights
 }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I can help answer questions about this interview. What would you like to know?'
-    }
-  ])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [remainingTokens, setRemainingTokens] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<string>('')
+  const prevMessagesLengthRef = useRef<number>(0)
   const router = useRouter()
-
-  const fetchMessages = async () => {
-    try {
-      const data = await api.get<Message[]>(`/api/chat/${interviewId}/messages`)
-      setMessages(data)
-    } catch (error) {
-      toast.error('Failed to load chat messages')
-    }
-  }
-
-  useEffect(() => {
-    fetchMessages()
-  }, [interviewId])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!input.trim()) return
-    
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input
-    }
-    
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setIsLoading(true)
-    
-    try {
-      const response = await api.post<ChatResponse>(`/api/chat/${interviewId}/chat`, {
-        message: input
-      })
-      
-      setMessages(prev => [
-        ...prev, 
-        response.user_message, 
-        response.assistant_message
-      ])
-      
-      setRemainingTokens(response.remaining_tokens)
-    } catch (error: any) {
-      if (error.response?.status === 402) {
+  
+  const { 
+    messages, 
+    streamingMessage, 
+    isLoading, 
+    remainingTokens, 
+    streamMessage 
+  } = useChat({ 
+    interviewId,
+    onError: (error) => {
+      // Check if the error has a response property with status code
+      const apiError = error as { response?: { status: number } }
+      if (apiError.response?.status === 402) {
         toast.error('You\'ve used all your chat tokens for this interview.', {
           action: (
             <Button variant="outline" size="sm" onClick={() => router.push('/credits')}>
@@ -106,11 +65,49 @@ export function ChatInterface({
             </Button>
           )
         })
-      } else {
-        toast.error(error.message || 'Failed to send message')
       }
-    } finally {
-      setIsLoading(false)
+    }
+  })
+
+  // Function to scroll to bottom
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [])
+
+  // Scroll when messages change but only if the length increases
+  useEffect(() => {
+    // Only scroll if messages are added (not on initial load with 0 messages)
+    if (messages.length > 0 && messages.length !== prevMessagesLengthRef.current) {
+      prevMessagesLengthRef.current = messages.length
+      scrollToBottom()
+    }
+  }, [messages.length, scrollToBottom])
+  
+  // Handle streaming message updates efficiently
+  useEffect(() => {
+    if (streamingMessage && streamingMessage.content !== contentRef.current) {
+      contentRef.current = streamingMessage.content
+      scrollToBottom()
+    } else if (!streamingMessage) {
+      // Reset content ref when streaming is done
+      contentRef.current = ''
+    }
+  }, [streamingMessage, scrollToBottom])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!input.trim()) return
+    
+    setInput('')
+    
+    try {
+      await streamMessage(input.trim())
+    } catch (error) {
+      // Error handling is done in the hook
+      console.error('Error in chat submission:', error)
     }
   }
 
@@ -139,6 +136,17 @@ export function ChatInterface({
             </div>
           </div>
         ))}
+        
+        {/* Streaming message */}
+        {streamingMessage && (
+          <div className="flex justify-start">
+            <div className="max-w-[80%] rounded-lg px-4 py-2 bg-muted">
+              <p className="whitespace-pre-wrap">{streamingMessage.content}</p>
+              <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-1" />
+            </div>
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </div>
       

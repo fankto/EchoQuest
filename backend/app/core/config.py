@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     # OpenAI - Optional, used for chat functionality
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
-    OPENAI_CHAT_MODEL: str = "gpt-4-turbo-preview"
+    OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
     
     # Qdrant
     QDRANT_URL: str = "http://qdrant:6333"

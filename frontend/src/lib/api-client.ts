@@ -236,7 +236,10 @@ export const api = {
       }
       throw error;
     });
-  }
+  },
+  
+  // Method to get the base API URL
+  getBaseUrl: () => API_URL
 }
 
 export default api

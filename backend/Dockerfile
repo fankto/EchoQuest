@@ -28,6 +28,10 @@ RUN poetry config virtualenvs.create false \
     && poetry lock --no-update \
     && poetry install --no-interaction --no-ansi --no-root --only main
 
+# Copy docker-entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Copy application code
 COPY . /app/
 
@@ -37,5 +41,6 @@ RUN mkdir -p /app/data/uploads /app/data/processed
 # Expose port
 EXPOSE 8000
 
-# Run the application
+# Set entrypoint and default command
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

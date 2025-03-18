@@ -21,7 +21,13 @@ class TokenService:
     """Service for handling JWT tokens and token estimation"""
     
     def __init__(self):
-        self.encoding = tiktoken.encoding_for_model(settings.OPENAI_CHAT_MODEL)
+        try:
+            # Try to get encoding for the specified model
+            self.encoding = tiktoken.encoding_for_model(settings.OPENAI_CHAT_MODEL)
+        except KeyError:
+            # If the model isn't recognized (like gpt-4o-mini), use cl100k_base which is used for GPT-4 models
+            logger.warning(f"Could not find tokenizer for {settings.OPENAI_CHAT_MODEL}, falling back to cl100k_base")
+            self.encoding = tiktoken.get_encoding("cl100k_base")
     
     def create_access_token(self, subject: Union[str, Dict], expires_delta: Optional[timedelta] = None) -> str:
         """

@@ -12,6 +12,10 @@ from app.models.models import User, ChatMessage
 from app.schemas.chat import ChatMessageCreate, ChatMessageOut, ChatRequest, ChatResponse
 from app.services.chat_service import chat_service
 
+from fastapi.responses import StreamingResponse
+import json
+import asyncio
+
 router = APIRouter()
 
 
@@ -147,6 +151,93 @@ async def chat_with_interview(
         await db.rollback()
         import logging
         logging.error(f"Error in chat_with_interview: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.post("/{interview_id}/chat/stream")
+async def stream_chat_with_interview(
+    interview_id: uuid.UUID,
+    chat_request: ChatRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """
+    Chat with an interview transcript and stream the response.
+    """
+    try:
+        # Check if the interview exists and user has access
+        interview = await interview_crud.get(db, id=interview_id)
+        if not interview:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Interview not found",
+            )
+        
+        # Check ownership
+        if interview.owner_id != current_user.id:
+            # TODO: Add organization-based permissions
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions",
+            )
+        
+        # Check if interview has a transcription
+        if not interview.transcription:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Interview has no transcription",
+            )
+        
+        # Check if there are chat tokens available
+        if interview.remaining_chat_tokens <= 0:
+            raise InsufficientCreditsError("No chat tokens available for this interview")
+        
+        # Create user message
+        user_message = await chat_service.create_chat_message(
+            db=db,
+            interview=interview,
+            user=current_user,
+            message_text=chat_request.message,
+        )
+        
+        # Get recent context using a proper query instead of accessing relationship directly
+        from sqlalchemy import select
+        
+        query = select(ChatMessage).filter(
+            ChatMessage.interview_id == interview_id
+        ).order_by(ChatMessage.created_at.desc()).limit(10)
+        
+        result = await db.execute(query)
+        recent_messages = list(reversed(result.scalars().all()))
+        
+        # Add the new user message to the context
+        messages = recent_messages + [user_message]
+        
+        # Stream the response
+        return StreamingResponse(
+            chat_service.stream_assistant_response(
+                db=db,
+                interview=interview,
+                user=current_user,
+                context_messages=messages,
+            ),
+            media_type="text/event-stream",
+        )
+    
+    except InsufficientCreditsError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=str(e),
+        )
+    except Exception as e:
+        # Rollback transaction on error
+        await db.rollback()
+        import logging
+        logging.error(f"Error in stream_chat_with_interview: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

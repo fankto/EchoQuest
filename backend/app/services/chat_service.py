@@ -1,4 +1,6 @@
 from typing import Dict, List
+import json
+import asyncio
 
 import openai
 from loguru import logger
@@ -273,6 +275,139 @@ TRANSCRIPT CONTEXT:
         minutes = int(seconds // 60)
         seconds = int(seconds % 60)
         return f"{minutes:02d}:{seconds:02d}"
+
+    async def stream_assistant_response(
+        self,
+        db: AsyncSession,
+        interview: Interview,
+        user: User,
+        context_messages: List[ChatMessage],
+    ):
+        """
+        Generate streaming assistant response using OpenAI API
+        
+        Args:
+            db: Database session
+            interview: Interview object
+            user: User
+            context_messages: Previous messages for context
+            
+        Yields:
+            Streaming response chunks
+        """
+        try:
+            # Check if OpenAI API key is configured
+            if not openai.api_key or isinstance(openai.api_key, str) and (openai.api_key.startswith("your-") or not openai.api_key.strip()):
+                # Create a mock response if OpenAI is not configured
+                content = "I'm sorry, but the OpenAI API is not properly configured. Please set up a valid OpenAI API key to use the chat functionality."
+                
+                # Send initial data with user message
+                user_message = next((msg for msg in reversed(context_messages) if msg.role == "user"), None)
+                if user_message:
+                    yield f"data: {json.dumps({'type': 'user_message', 'content': user_message.content})}\n\n"
+                
+                # Stream mock response one character at a time
+                for char in content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': char})}\n\n"
+                    await asyncio.sleep(0.01)
+                
+                # Create and save the message
+                message = ChatMessage(
+                    interview_id=interview.id,
+                    user_id=user.id,
+                    role="assistant",
+                    content=content,
+                    tokens_used=0,  # No tokens used for mock response
+                )
+                db.add(message)
+                await db.flush()
+                await db.commit()
+                
+                # Send completion signal
+                yield f"data: {json.dumps({'type': 'done', 'remaining_tokens': interview.remaining_chat_tokens})}\n\n"
+                return
+            
+            # Get transcript chunks based on recent messages
+            transcript_context = await self._get_transcript_context(interview, context_messages)
+            
+            # Format conversation for OpenAI
+            messages = await self._prepare_messages(context_messages, transcript_context)
+            
+            # Estimate token usage for messages
+            input_tokens = token_service.count_message_tokens(messages)
+            
+            # Estimate max tokens for response (leaving some buffer)
+            max_tokens = min(4000, interview.remaining_chat_tokens - input_tokens)
+            
+            if max_tokens < 100:
+                raise InsufficientCreditsError("Not enough chat tokens remaining for response")
+            
+            # Send initial data with user message
+            user_message = next((msg for msg in reversed(context_messages) if msg.role == "user"), None)
+            if user_message:
+                yield f"data: {json.dumps({'type': 'user_message', 'content': user_message.content})}\n\n"
+            
+            # Stream response from OpenAI
+            full_content = ""
+            
+            # Call OpenAI API with stream=True
+            stream = openai.chat.completions.create(
+                model=settings.OPENAI_CHAT_MODEL,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.7,
+                stream=True,
+            )
+            
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    content_chunk = chunk.choices[0].delta.content
+                    full_content += content_chunk
+                    
+                    # Send each token to the client
+                    yield f"data: {json.dumps({'type': 'token', 'content': content_chunk})}\n\n"
+            
+            # Count output tokens
+            output_tokens = token_service.count_tokens(full_content)
+            total_tokens = input_tokens + output_tokens
+            
+            # Create assistant message
+            message = ChatMessage(
+                interview_id=interview.id,
+                user_id=user.id,
+                role="assistant",
+                content=full_content,
+                tokens_used=total_tokens,
+            )
+            
+            # Update interview token count
+            interview.remaining_chat_tokens -= total_tokens
+            
+            # Add to database
+            db.add(message)
+            await db.flush()
+            
+            # Create transaction record
+            await transaction_crud.create_transaction(
+                db=db,
+                user_id=user.id,
+                organization_id=interview.organization_id,
+                interview_id=interview.id,
+                transaction_type=TransactionType.CHAT_TOKEN_USAGE,
+                amount=total_tokens,
+            )
+            
+            await db.commit()
+            
+            # Send completion signal with remaining tokens
+            yield f"data: {json.dumps({'type': 'done', 'remaining_tokens': interview.remaining_chat_tokens})}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Error in streaming assistant response: {e}")
+            # Send error message
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            await db.rollback()
+            raise
 
 
 # Create singleton instance
