@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Pencil, Save, X, Search, PlayCircle } from 'lucide-react'
+import { Pencil, Save, X, Search, PlayCircle, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { secondsToTimestamp } from '@/lib/format'
 import api from '@/lib/api-client'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '../ui/textarea'
 
-type TranscriptSegment = {
+export type TranscriptSegment = {
   text: string
   start_time: number
   end_time: number
@@ -53,12 +55,11 @@ export function TranscriptViewer({
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState<number | undefined>(undefined)
   
-  // Automatically switch to segments tab if segments are available
-  useEffect(() => {
-    if (segments && segments.length > 0 && activeTab === 'transcript') {
-      setActiveTab('segments')
-    }
-  }, [segments, activeTab])
+  // New state for segment editing
+  const [editingSegmentIndex, setEditingSegmentIndex] = useState<number | null>(null)
+  const [editedSegments, setEditedSegments] = useState<TranscriptSegment[]>(segments)
+  const [editedSegmentText, setEditedSegmentText] = useState('')
+  const [editedSegmentSpeaker, setEditedSegmentSpeaker] = useState('')
 
   useEffect(() => {
     // Find the current segment based on audio playback time
@@ -85,20 +86,90 @@ export function TranscriptViewer({
   useEffect(() => {
     // Focus highlighted segment when it changes
     if (highlightedSegmentIndex !== undefined && segments && segments[highlightedSegmentIndex]) {
-      setCurrentSegmentIndex(highlightedSegmentIndex)
+      // Update current segment index
+      setCurrentSegmentIndex(highlightedSegmentIndex);
       
-      const segmentElement = segmentRefs.current.get(highlightedSegmentIndex)
-      segmentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      
-      // If audio is available, seek to the segment's start time
-      if (audioRef.current && segments[highlightedSegmentIndex].start_time) {
-        audioRef.current.currentTime = segments[highlightedSegmentIndex].start_time
-        audioRef.current.play().catch(error => {
-          console.error("Failed to play segment:", error)
-        })
+      // Scroll to the segment if it's offscreen
+      const segmentElement = segmentRefs.current.get(highlightedSegmentIndex);
+      if (segmentElement) {
+        segmentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+      
+      // NOTE: We're no longer attempting to play audio here.
+      // Audio playback is handled exclusively by the AudioPlayer component via onSegmentClick
     }
-  }, [highlightedSegmentIndex, segments])
+  }, [highlightedSegmentIndex, segments]);
+
+  // Update edited segments when segments prop changes
+  useEffect(() => {
+    // Make sure the segment timestamps are accurate based on the text content
+    if (segments && segments.length > 0) {
+      // First, sort segments by start_time to ensure proper ordering
+      const sortedSegments = [...segments].sort((a, b) => a.start_time - b.start_time);
+      
+      // Process each segment to fix timestamps
+      const updatedSegments = sortedSegments.map((segment, index) => {
+        // Default to keeping the original segment
+        let updatedSegment = { ...segment };
+        
+        // If segment has word-level data, use it for precise timestamps
+        if (segment.words && segment.words.length > 0) {
+          const firstWord = segment.words[0];
+          const lastWord = segment.words[segment.words.length - 1];
+          
+          updatedSegment = {
+            ...updatedSegment,
+            // Use the precise word timestamps for accuracy
+            start_time: firstWord.start,
+            end_time: lastWord.end
+          };
+        } else {
+          // Without word data, make a reasonable estimate based on text length
+          const textLength = segment.text.length;
+          
+          // Estimate speaking rate (chars per second) - typically 10-15 chars/sec
+          // Adjust this based on your content (slower for technical, faster for casual)
+          const avgSpeakingRate = 12;
+          
+          // Minimum duration based on text length
+          const minimumDuration = Math.max(0.5, textLength / avgSpeakingRate);
+          const currentDuration = segment.end_time - segment.start_time;
+          
+          // Only extend if current duration is unreasonably short
+          if (currentDuration < minimumDuration) {
+            updatedSegment = {
+              ...updatedSegment,
+              end_time: segment.start_time + minimumDuration
+            };
+          }
+        }
+        
+        // Prevent overlaps with next segment
+        if (index < sortedSegments.length - 1) {
+          const nextSegment = sortedSegments[index + 1];
+          
+          // If this segment's end time overlaps with the next segment's start time
+          if (updatedSegment.end_time > nextSegment.start_time) {
+            // Set a gap of 0.01 seconds to prevent overlap
+            const gap = 0.01;
+            
+            // Adjust end time to avoid overlap
+            updatedSegment = {
+              ...updatedSegment,
+              end_time: Math.max(updatedSegment.start_time + 0.1, nextSegment.start_time - gap)
+            };
+          }
+        }
+        
+        return updatedSegment;
+      });
+      
+      console.log("Updated segments with corrected timestamps:", updatedSegments);
+      setEditedSegments(updatedSegments);
+    } else {
+      setEditedSegments(segments);
+    }
+  }, [segments]);
 
   const handleSave = async () => {
     try {
@@ -118,6 +189,97 @@ export function TranscriptViewer({
     }
   }
 
+  // New function to save edited segments
+  const handleSaveSegments = async () => {
+    try {
+      await api.put(`/api/interviews/${interviewId}/update-segments`, {
+        segments: editedSegments
+      })
+      
+      toast("Segments updated successfully", {
+        description: "Your changes have been saved",
+      })
+    } catch (error) {
+      toast("Error updating segments", {
+        description: "Failed to update segments",
+      })
+    }
+  }
+
+  // New function to handle segment edit start
+  const handleEditSegment = (segment: TranscriptSegment, index: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation() // Prevent audio playback
+    setEditingSegmentIndex(index)
+    setEditedSegmentText(segment.text)
+    setEditedSegmentSpeaker(segment.speaker)
+  }
+
+  // Add keyboard event handler for accessibility
+  const handleEditSegmentKeyPress = (segment: TranscriptSegment, index: number, e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setEditingSegmentIndex(index)
+      setEditedSegmentText(segment.text)
+      setEditedSegmentSpeaker(segment.speaker)
+    }
+  }
+
+  // New function to save segment edit
+  const handleSaveSegmentEdit = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation() // Prevent audio playback
+    
+    if (editingSegmentIndex !== null) {
+      const updatedSegments = [...editedSegments]
+      updatedSegments[editingSegmentIndex] = {
+        ...updatedSegments[editingSegmentIndex],
+        text: editedSegmentText,
+        speaker: editedSegmentSpeaker
+      }
+      
+      setEditedSegments(updatedSegments)
+      setEditingSegmentIndex(null)
+      
+      // Save changes to backend
+      handleSaveSegments()
+    }
+  }
+
+  // Add keyboard event handler for save
+  const handleSaveSegmentEditKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      
+      if (editingSegmentIndex !== null) {
+        const updatedSegments = [...editedSegments]
+        updatedSegments[editingSegmentIndex] = {
+          ...updatedSegments[editingSegmentIndex],
+          text: editedSegmentText,
+          speaker: editedSegmentSpeaker
+        }
+        
+        setEditedSegments(updatedSegments)
+        setEditingSegmentIndex(null)
+        
+        // Save changes to backend
+        handleSaveSegments()
+      }
+    }
+  }
+
+  // New function to cancel segment edit
+  const handleCancelSegmentEdit = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation() // Prevent audio playback
+    setEditingSegmentIndex(null)
+  }
+
+  // Add keyboard event handler for cancel
+  const handleCancelSegmentEditKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setEditingSegmentIndex(null)
+    }
+  }
+
   const handleCancel = () => {
     setEditedText(transcriptText)
     setIsEditing(false)
@@ -130,23 +292,57 @@ export function TranscriptViewer({
     return text.replace(regex, '<mark>$1</mark>')
   }
 
-  const playSegmentAudio = (segment: TranscriptSegment, index: number, e?: React.MouseEvent) => {
+  const playSegmentAudio = (segment: TranscriptSegment, index: number, e?: React.MouseEvent<HTMLButtonElement>) => {
     if (e) {
-      e.stopPropagation()
+      e.stopPropagation();
     }
     
-    if (audioRef.current && segment.start_time) {
-      audioRef.current.currentTime = segment.start_time
-      audioRef.current.play().catch(error => {
-        console.error("Failed to play segment:", error)
-        toast.error("Failed to play segment audio")
-      })
+    // Don't play audio if we're editing
+    if (editingSegmentIndex !== null) {
+      return;
     }
     
+    console.log(`Transcript viewer playSegmentAudio: segment ${index} clicked`);
+    
+    // Always update our local current segment index first
+    setCurrentSegmentIndex(index);
+    
+    // Notify parent via callback (most important part - this triggers the AudioPlayer)
     if (onSegmentClick) {
-      onSegmentClick(segment, index)
+      // This will trigger the AudioPlayer component to play this segment
+      console.log(`Calling onSegmentClick for segment ${index}`);
+      
+      // Delay slightly to ensure the UI updates first
+      setTimeout(() => {
+        onSegmentClick(segment, index);
+      }, 10);
+    } else if (audioRef.current && segment.start_time !== undefined) {
+      // Direct playback is a fallback case only
+      console.log(`Direct audio playback for segment ${index} with local audio element`);
+      
+      // First completely stop any currently playing audio
+      audioRef.current.pause();
+      
+      // Set current time exactly to segment start for local player
+      audioRef.current.currentTime = segment.start_time;
+      
+      // Play directly if no parent handler (fallback case)
+      audioRef.current.play().catch(error => {
+        console.error("Failed to play segment:", error);
+        toast.error("Failed to play segment audio");
+      });
     }
-  }
+  };
+
+  // Handle keyboard interaction consistently with click behavior
+  const handlePlaySegmentKeyDown = (segment: TranscriptSegment, index: number, e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      
+      // Use the same implementation as the click handler
+      playSegmentAudio(segment, index);
+    }
+  };
   
   // Get segment class based on its state (highlighted, current playing)
   const getSegmentClassName = (index: number) => {
@@ -210,7 +406,7 @@ export function TranscriptViewer({
             <ScrollArea className="h-full">
               {segments && segments.length > 0 ? (
                 <div className="space-y-0 p-4">
-                  {segments.map((segment, index) => (
+                  {editedSegments.map((segment, index) => (
                     <button 
                       key={segment.start_time ? `segment-${segment.start_time}-${index}` : `segment-${index}`}
                       ref={el => {
@@ -218,43 +414,110 @@ export function TranscriptViewer({
                       }}
                       className={`${getSegmentClassName(index)} w-full text-left`}
                       onClick={() => playSegmentAudio(segment, index)}
+                      onKeyDown={(e) => handlePlaySegmentKeyDown(segment, index, e)}
                       aria-label={`Play segment ${index + 1}`}
                       type="button"
                     >
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <Badge variant="outline" className="font-mono">
-                          {segment.speaker || `Speaker ${Math.floor(index/3) + 1}`}
-                        </Badge>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {secondsToTimestamp(segment.start_time)} - {secondsToTimestamp(segment.end_time)}
-                          </span>
-                          {audioUrl && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6" 
-                              onClick={(e) => playSegmentAudio(segment, index, e)}
-                              title="Play segment"
-                            >
-                              <PlayCircle className="h-4 w-4" />
-                            </Button>
-                          )}
+                      {editingSegmentIndex === index ? (
+                        <div 
+                          onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+                          onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+                            // Prevent event propagation for keyboard events
+                            e.stopPropagation();
+                          }}
+                          role="presentation"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <Input 
+                              value={editedSegmentSpeaker}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedSegmentSpeaker(e.target.value)}
+                              className="w-32"
+                              placeholder="Speaker"
+                            />
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {secondsToTimestamp(segment.start_time)} - {secondsToTimestamp(segment.end_time)}
+                              </span>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6" 
+                                onClick={handleSaveSegmentEdit}
+                                onKeyDown={handleSaveSegmentEditKeyDown}
+                                title="Save changes"
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6" 
+                                onClick={handleCancelSegmentEdit}
+                                onKeyDown={handleCancelSegmentEditKeyDown}
+                                title="Cancel"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <Textarea 
+                            value={editedSegmentText}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditedSegmentText(e.target.value)}
+                            className="w-full"
+                            rows={3}
+                          />
                         </div>
-                      </div>
-                      <div className="text-sm">
-                        {searchQuery ? (
-                          <>
-                            {segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
-                              part.toLowerCase() === searchQuery.toLowerCase() 
-                                ? <mark key={`segment-${segment.start_time}-mark-${i}-${part.substring(0, 10)}`}>{part}</mark> 
-                                : part
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <Badge variant="outline" className="font-mono">
+                              {segment.speaker || `Speaker ${Math.floor(index/3) + 1}`}
+                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {secondsToTimestamp(segment.start_time)} - {secondsToTimestamp(segment.end_time)}
+                              </span>
+                              {audioUrl && (
+                                <>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6" 
+                                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => playSegmentAudio(segment, index, e)}
+                                    onKeyDown={(e: React.KeyboardEvent<HTMLButtonElement>) => handlePlaySegmentKeyDown(segment, index, e)}
+                                    title="Play segment"
+                                  >
+                                    <PlayCircle className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6" 
+                                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => handleEditSegment(segment, index, e)}
+                                    onKeyDown={(e: React.KeyboardEvent<HTMLButtonElement>) => handleEditSegmentKeyPress(segment, index, e)}
+                                    title="Edit segment"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-sm">
+                            {searchQuery ? (
+                              <>
+                                {segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
+                                  part.toLowerCase() === searchQuery.toLowerCase() 
+                                    ? <mark key={`segment-${segment.start_time}-mark-${i}-${part.substring(0, 10)}`}>{part}</mark> 
+                                    : part
+                                )}
+                              </>
+                            ) : (
+                              segment.text
                             )}
-                          </>
-                        ) : (
-                          segment.text
-                        )}
-                      </div>
+                          </div>
+                        </>
+                      )}
                     </button>
                   ))}
                 </div>

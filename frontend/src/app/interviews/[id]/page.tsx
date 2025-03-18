@@ -13,19 +13,7 @@ import { Interview, InterviewStatus } from '@/types/interview'
 import Link from 'next/link'
 import api from '@/lib/api-client'
 import { AudioPlayer } from '@/components/interview/audio-player'
-
-// Define the segment type
-interface TranscriptSegment {
-  text: string
-  start_time: number
-  end_time: number
-  speaker: string
-  words?: Array<{
-    word: string
-    start: number
-    end: number
-  }>
-}
+import type { TranscriptSegment } from '@/components/interview/transcript-viewer'
 
 export default function InterviewDetailPage() {
   const { id } = useParams()
@@ -159,8 +147,90 @@ export default function InterviewDetailPage() {
   }
 
   const handleSegmentClick = (segment: TranscriptSegment, index: number) => {
-    setSelectedSegmentIndex(index)
-    setSelectedSegment(segment)
+    console.log(`Interview page: Segment ${index} clicked:`, segment);
+    
+    // Reset the current time to force the audio player to refresh
+    setCurrentTime(0);
+    
+    // Create a copy of the segment to modify
+    let updatedSegment = { ...segment };
+    
+    // Ensure we have valid start_time - critical for proper audio sync
+    if (updatedSegment.start_time === undefined) {
+      console.warn("Missing start_time in segment, defaulting to 0");
+      updatedSegment.start_time = 0;
+    }
+    
+    // IMPORTANT: First get the unmodified server data for debugging
+    if (interview?.transcript_segments && interview.transcript_segments[index]) {
+      const originalSegment = interview.transcript_segments[index];
+      
+      // Log the original times for debugging
+      if (originalSegment?.start_time !== undefined && originalSegment?.end_time !== undefined) {
+        console.log(`Original timestamps from server: ${originalSegment.start_time.toFixed(3)} - ${originalSegment.end_time.toFixed(3)}`);
+      }
+    }
+    
+    // FIX: Calculate a more realistic time for the segment based on text length and speaking rate
+    // This is critical to ensure the segment has enough time for the full text
+    const textLength = updatedSegment.text.length;
+    
+    // Typical speaking rates:
+    // - Fast: 160 wpm = ~13.3 chars/second (for 5 chars/word)
+    // - Moderate: 150 wpm = ~12.5 chars/second
+    // - Slow: 130 wpm = ~10.8 chars/second
+    const charsPerSecond = 10; // Conservative estimate to ensure full text is spoken
+    
+    // Calculate needed duration and add some padding for safety
+    const neededDuration = (textLength / charsPerSecond) + 0.5; // Add 0.5s padding
+    const currentDuration = updatedSegment.end_time - updatedSegment.start_time;
+    
+    console.log(`Segment text "${updatedSegment.text.substring(0, 30)}..." needs ~${neededDuration.toFixed(2)}s (has ${currentDuration.toFixed(2)}s)`);
+    
+    // Extend the segment end time to accommodate the full text if needed
+    if (currentDuration < neededDuration) {
+      console.log(`Extending segment ${index} duration from ${currentDuration.toFixed(2)}s to ${neededDuration.toFixed(2)}s`);
+      updatedSegment.end_time = updatedSegment.start_time + neededDuration;
+    }
+    
+    // Use high-precision word-level data if available - only for start time, as end time might need extension
+    if (updatedSegment.words && updatedSegment.words.length > 0) {
+      const firstWord = updatedSegment.words[0];
+      const lastWord = updatedSegment.words[updatedSegment.words.length - 1];
+      
+      // Use word-level data for precise start time
+      updatedSegment.start_time = firstWord.start;
+      
+      // For end time, we need to make sure it's at least as long as our calculated needed duration
+      const wordBasedEndTime = lastWord.end;
+      const minEndTime = updatedSegment.start_time + neededDuration;
+      updatedSegment.end_time = Math.max(wordBasedEndTime, minEndTime);
+      
+      console.log(`Using precise word start time: ${updatedSegment.start_time.toFixed(3)}, end time: ${updatedSegment.end_time.toFixed(3)}`);
+    }
+    
+    // Ensure minimum segment duration (at least 1 second)
+    if (updatedSegment.end_time - updatedSegment.start_time < 1.0) {
+      console.log(`Enforcing minimum duration for segment ${index}`);
+      updatedSegment.end_time = updatedSegment.start_time + 1.0;
+    }
+    
+    // Check for next segment to avoid overlaps
+    if (interview?.transcript_segments && index < interview.transcript_segments.length - 1) {
+      const nextSegment = interview.transcript_segments[index + 1];
+      if (nextSegment && updatedSegment.end_time > nextSegment.start_time) {
+        // If overlap with next segment, back off a bit
+        console.log(`Avoiding overlap with next segment starting at ${nextSegment.start_time}`);
+        updatedSegment.end_time = nextSegment.start_time - 0.1;
+      }
+    }
+    
+    // Print final timestamps for debugging
+    console.log(`Final segment ${index} timestamps: ${updatedSegment.start_time.toFixed(3)} - ${updatedSegment.end_time.toFixed(3)} (duration: ${(updatedSegment.end_time - updatedSegment.start_time).toFixed(3)}s)`);
+    
+    // Update the UI state - critical to do BOTH of these
+    setSelectedSegmentIndex(index);
+    setSelectedSegment(updatedSegment);
   }
 
   if (isLoading) {
@@ -282,7 +352,7 @@ export default function InterviewDetailPage() {
                     src={audioUrl}
                     title={interview.title}
                     onTimeUpdate={setCurrentTime}
-                    currentSegment={selectedSegment}
+                    currentSegment={selectedSegment || undefined}
                     className="w-full"
                   />
                 </div>
@@ -340,8 +410,12 @@ export default function InterviewDetailPage() {
                 interviewId={id as string} 
                 interviewTitle={interview.title}
                 transcriptHighlights={{
-                  highlightedText: interview.transcript_segments?.map(s => s.text.substring(0, 60) + '...'),
-                  onHighlightClick: handleSegmentClick
+                  highlightedText: interview?.transcript_segments?.map(s => s.text.substring(0, 60) + '...'),
+                  onHighlightClick: (index: number) => {
+                    if (interview?.transcript_segments?.[index]) {
+                      handleSegmentClick(interview.transcript_segments[index], index);
+                    }
+                  }
                 }}
               />
             </div>
