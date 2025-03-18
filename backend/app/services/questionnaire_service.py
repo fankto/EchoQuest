@@ -11,7 +11,7 @@ class QuestionnaireService:
     """Service for managing questionnaires and extracting questions"""
     
     def __init__(self):
-        openai.api_key = settings.OPENAI_API_KEY
+        self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     
     async def extract_questions(self, content: str) -> List[str]:
         """
@@ -25,7 +25,7 @@ class QuestionnaireService:
         """
         try:
             # Use OpenAI to extract questions
-            response = await openai.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=settings.OPENAI_CHAT_MODEL,
                 messages=[
                     {"role": "system", "content": "Extract all questions from the following text. Return just a list of questions, one per line. Don't add any explanations."},

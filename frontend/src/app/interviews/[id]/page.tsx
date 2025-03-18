@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { ChatInterface } from '@/components/interview/chat-interface'
 import { TranscriptViewer } from '@/components/interview/transcript-viewer'
-import { ChevronLeft, PlayCircle, Cog, MessageSquare, FileText, ListIcon } from 'lucide-react'
+import { ChevronLeft, PlayCircle, Cog, MessageSquare, FileText, ListIcon, PlusIcon } from 'lucide-react'
 import { Interview, InterviewStatus } from '@/types/interview'
 import Link from 'next/link'
 import api from '@/lib/api-client'
@@ -363,12 +363,21 @@ export default function InterviewDetailPage() {
                             ))}
                           </SelectContent>
                         </Select>
+                        
+                        <div className="flex justify-start mt-2">
+                          <Button variant="link" asChild className="px-0">
+                            <Link href="/questionnaires/new" target="_blank">
+                              <PlusIcon className="h-4 w-4 mr-1" />
+                              Create New Questionnaire
+                            </Link>
+                          </Button>
+                        </div>
                       </div>
                       
                       <div className="flex justify-end">
                         <Button 
                           onClick={attachQuestionnaire} 
-                          disabled={isAttachingQuestionnaire}
+                          disabled={isAttachingQuestionnaire || !selectedQuestionnaireId}
                         >
                           {isAttachingQuestionnaire ? (
                             <>

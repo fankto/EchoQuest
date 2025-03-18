@@ -244,13 +244,13 @@ async def delete_questionnaire(
 
 @router.post("/extract-questions", response_model=QuestionExtractionResponse)
 async def extract_questions(
-    content: str = Form(...),
+    request: QuestionExtractionRequest,
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """
     Extract questions from content.
     """
     # Extract questions
-    questions = await questionnaire_service.extract_questions(content)
+    questions = await questionnaire_service.extract_questions(request.content)
     
     return QuestionExtractionResponse(questions=questions)
