@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Float, ForeignKey, Integer, 
-    String, Text, JSON, func, Enum as SQLAEnum
+    String, Text, JSON, func, Enum as SQLAEnum, Table
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -105,6 +105,15 @@ class OrganizationMember(Base):
     user = relationship("User", back_populates="organizations")
 
 
+# Association table for many-to-many relationship between Interview and Questionnaire
+interview_questionnaire = Table(
+    "interview_questionnaire",
+    Base.metadata,
+    Column("interview_id", UUID(as_uuid=True), ForeignKey("interviews.id"), primary_key=True),
+    Column("questionnaire_id", UUID(as_uuid=True), ForeignKey("questionnaires.id"), primary_key=True),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 class Questionnaire(Base):
     """Questionnaire model"""
     __tablename__ = "questionnaires"
@@ -126,7 +135,7 @@ class Questionnaire(Base):
     # Relationships
     creator = relationship("User", back_populates="questionnaires")
     organization = relationship("Organization", back_populates="questionnaires")
-    interviews = relationship("Interview", back_populates="questionnaire")
+    interviews = relationship("Interview", secondary=interview_questionnaire, back_populates="questionnaires")
 
 
 class Interview(Base):
@@ -151,13 +160,13 @@ class Interview(Base):
     transcript_segments = Column(JSON, nullable=True)  # Detailed transcript segments with timestamps
     language = Column(String, nullable=True)
     
-    # Generated answers
-    generated_answers = Column(JSON, nullable=True)  # Answers to questionnaire questions
+    # Generated answers - update to store answers by questionnaire ID
+    generated_answers = Column(JSON, nullable=True)  # Now a dictionary mapping questionnaire_id to answers
     
     # Error information
     error_message = Column(Text, nullable=True)
     
-    # References
+    # References - keep this for backward compatibility during migration
     questionnaire_id = Column(UUID(as_uuid=True), ForeignKey("questionnaires.id"), nullable=True)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True)
@@ -169,8 +178,10 @@ class Interview(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    # Relationships
-    questionnaire = relationship("Questionnaire", back_populates="interviews")
+    # Relationships - keep the direct relationship for backward compatibility
+    questionnaire = relationship("Questionnaire", foreign_keys=[questionnaire_id])
+    # Add the many-to-many relationship
+    questionnaires = relationship("Questionnaire", secondary=interview_questionnaire, back_populates="interviews")
     owner = relationship("User", back_populates="interviews")
     organization = relationship("Organization", back_populates="interviews")
     chat_messages = relationship("ChatMessage", back_populates="interview")

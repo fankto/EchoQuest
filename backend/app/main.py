@@ -45,14 +45,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add CORS middleware with more permissive settings for development
+# Add CORS middleware with specific origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    allow_origins=[str(origin) for origin in settings.CORS_ORIGINS] + ["http://localhost:3001", "http://127.0.0.1:3001"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],  # Expose all headers to the browser
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+    expose_headers=["Content-Type", "Content-Length"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 # Add pagination to the API

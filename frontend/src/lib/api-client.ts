@@ -175,8 +175,35 @@ export const api = {
     return apiRequest<T>('patch', url, data, config);
   },
   
-  delete: <T>(url: string, config?: AxiosRequestConfig) => 
-    apiRequest<T>('delete', url, undefined, config),
+  delete: <T>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig) => {
+    // Create a copy of the config
+    const requestConfig: AxiosRequestConfig = { ...config };
+    
+    // Prepare URL with query parameters
+    let finalUrl = url;
+    
+    // For DELETE requests, we'll explicitly construct the URL with query parameters
+    // to ensure they're properly formatted
+    if (data && Object.keys(data).length > 0) {
+      const queryParams = new URLSearchParams();
+      
+      // Add each data property as a query parameter
+      for (const [key, value] of Object.entries(data)) {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      }
+      
+      // Append query parameters to URL
+      const queryString = queryParams.toString();
+      if (queryString) {
+        finalUrl = `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
+      }
+    }
+    
+    // Don't send data in the body for DELETE requests
+    return apiRequest<T>('delete', finalUrl, undefined, requestConfig);
+  },
     
   // Special method for handling FormData uploads
   upload: <T>(url: string, formData: FormData, config?: AxiosRequestConfig) => {

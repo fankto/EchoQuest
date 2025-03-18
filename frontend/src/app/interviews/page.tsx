@@ -53,22 +53,33 @@ export default function InterviewsPage() {
     fetchInterviews()
   }, [fetchInterviews])
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return
+  const handleDelete = async (id: string) => {
+    if (!id) return;
 
     try {
-      setIsDeleting(true)
-      await api.delete(`/api/interviews/${deleteTarget}`)
-      toast.success('Interview deleted successfully')
+      console.log(`Attempting to delete interview with ID: ${id}`);
+      setIsDeleting(true);
+      
+      // Make the delete request
+      const response = await api.delete(`/api/interviews/${id}`);
+      console.log('Delete interview response:', response);
+      
+      toast.success('Interview deleted successfully');
       
       // Remove the deleted interview from the state
-      setInterviews(interviews.filter(interview => interview.id !== deleteTarget))
-      setDeleteTarget(null)
+      setInterviews(interviews.filter(interview => interview.id !== id));
+      setDeleteTarget(null);
     } catch (error) {
-      toast.error('Failed to delete interview')
-      console.error('Delete error:', error)
+      console.error('Delete interview error:', error);
+      let errorMessage = 'Unknown error occurred';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(`Failed to delete interview: ${errorMessage}`);
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
   }
 
@@ -205,7 +216,7 @@ export default function InterviewsPage() {
                             <Button 
                               type="button" 
                               variant="destructive" 
-                              onClick={handleDelete}
+                              onClick={() => handleDelete(interview.id)}
                               disabled={isDeleting}
                             >
                               {isDeleting ? 'Deleting...' : 'Delete'}

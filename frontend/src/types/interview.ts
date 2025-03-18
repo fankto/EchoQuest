@@ -15,6 +15,12 @@ export enum InterviewStatus {
     speaker: string
   }
   
+  export type QuestionnaireInfo = {
+    id: string
+    title: string
+    questions: string[]
+  }
+  
   export type GeneratedAnswer = {
     question: string
     answer: string
@@ -33,13 +39,10 @@ export enum InterviewStatus {
     processed_filenames?: string[]
     transcription?: string
     transcript_segments?: Transcript[]
-    generated_answers?: Record<string, string>
+    generated_answers?: Record<string, Record<string, string>>
     questionnaire_id?: string
-    questionnaire?: {
-      id: string
-      title: string
-      questions: string[]
-    }
+    questionnaire?: QuestionnaireInfo
+    questionnaires?: QuestionnaireInfo[]
     remaining_chat_tokens?: number
     created_at: string
     updated_at?: string

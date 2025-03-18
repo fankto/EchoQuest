@@ -49,6 +49,7 @@ export default function InterviewDetailPage() {
   const [selectedQuestionnaireId, setSelectedQuestionnaireId] = useState<string>("")
   const [isQuestionnaireDialogOpen, setIsQuestionnaireDialogOpen] = useState(false)
   const [isAttachingQuestionnaire, setIsAttachingQuestionnaire] = useState(false)
+  const [isGeneratingAnswers, setIsGeneratingAnswers] = useState<Record<string, boolean>>({})
 
   const fetchInterview = useCallback(async () => {
     try {
@@ -60,6 +61,7 @@ export default function InterviewDetailPage() {
       console.log("Received interview data:", data)
       console.log("Questionnaire relationship:", data.questionnaire ? 'Questionnaire object present' : 'No questionnaire object')
       console.log("Questionnaire ID:", data.questionnaire_id || 'None')
+      console.log("Questionnaires array:", data.questionnaires || 'Not present')
       
       // Check if questionnaire is attached
       if (data.questionnaire_id) {
@@ -224,13 +226,35 @@ export default function InterviewDetailPage() {
     }
   }
 
-  const generateAnswers = async () => {
+  const generateAnswers = async (questionnaireId?: string) => {
     try {
-      await api.post(`/api/interviews/${id}/generate-answers`)
+      // Use the questionnaire ID if provided, otherwise generate for all questionnaires
+      const targetId = questionnaireId || undefined
+      
+      // Set the loading state for this questionnaire
+      if (targetId) {
+        setIsGeneratingAnswers(prev => ({ ...prev, [targetId]: true }))
+      } else {
+        setIsLoading(true)
+      }
+      
+      // Call the API with the questionnaire ID if specified
+      const endpoint = targetId 
+        ? `/api/interviews/${id}/generate-answers?questionnaire_id=${targetId}`
+        : `/api/interviews/${id}/generate-answers`
+        
+      await api.post(endpoint)
+      
       toast.success('Answer generation started')
-      fetchInterview()
+      await fetchInterview()
     } catch (error) {
       toast.error('Failed to start answer generation')
+    } finally {
+      if (questionnaireId) {
+        setIsGeneratingAnswers(prev => ({ ...prev, [questionnaireId]: false }))
+      } else {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -323,14 +347,37 @@ export default function InterviewDetailPage() {
       // Update the interview state with the fetched questionnaire
       setInterview(prev => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          questionnaire: {
-            id: data.id,
-            title: data.title,
-            questions: data.questions
-          }
-        } as InterviewType;
+        
+        // Check if we already have questionnaires array
+        const existingQuestionnaires = prev.questionnaires || [];
+        
+        // Check if this questionnaire is already in the array
+        const exists = existingQuestionnaires.some(q => q.id === data.id);
+        
+        // If it's not in the array, add it
+        if (!exists) {
+          const updatedQuestionnaires = [
+            ...existingQuestionnaires,
+            {
+              id: data.id,
+              title: data.title,
+              questions: data.questions
+            }
+          ];
+          
+          return {
+            ...prev,
+            questionnaires: updatedQuestionnaires,
+            // Also keep backward compatibility
+            questionnaire: prev.questionnaire_id === data.id ? {
+              id: data.id,
+              title: data.title,
+              questions: data.questions
+            } : prev.questionnaire
+          } as InterviewType;
+        }
+        
+        return prev;
       });
       
       console.log(`Questionnaire details fetched successfully: ${data.title}`);
@@ -339,13 +386,40 @@ export default function InterviewDetailPage() {
     }
   }, []);
 
+  // Fetch all questionnaires attached to the interview
+  const fetchAttachedQuestionnaires = useCallback(async () => {
+    if (!interview?.id) return;
+    
+    try {
+      // For backward compatibility, fetch the questionnaire from the questionnaire_id field
+      if (interview.questionnaire_id && !interview.questionnaire) {
+        await fetchQuestionnaireById(interview.questionnaire_id);
+      }
+      
+      // Now, let's fetch all questionnaires from the many-to-many relationship
+      // We'll use the existing fetchInterview data, but we should make sure
+      // that we've properly decoded any questionnaire data that's returned
+      
+      if (interview.questionnaires) {
+        // If we already have questionnaires in the array, make sure they all have details
+        for (const q of interview.questionnaires) {
+          if (!q.questions) {
+            await fetchQuestionnaireById(q.id);
+          }
+        }
+      }
+      
+      // In the future, we could add a specific API endpoint to fetch all attached questionnaires
+      // For now we're relying on the interview API response containing the right data
+    } catch (error) {
+      console.error(`Failed to fetch attached questionnaires: ${error}`);
+    }
+  }, [interview?.id, interview?.questionnaire_id, interview?.questionnaire, interview?.questionnaires, fetchQuestionnaireById]);
+
   // 2. Update the useEffect to fetch questionnaire details when needed
   useEffect(() => {
-    // If we have an interview with questionnaire_id but no questionnaire object, fetch it
-    if (interview?.questionnaire_id && !interview?.questionnaire) {
-      fetchQuestionnaireById(interview.questionnaire_id);
-    }
-  }, [interview?.questionnaire_id, interview?.questionnaire, fetchQuestionnaireById]);
+    fetchAttachedQuestionnaires();
+  }, [fetchAttachedQuestionnaires]);
 
   if (isLoading) {
     return (
@@ -438,31 +512,6 @@ export default function InterviewDetailPage() {
               )}
             </Button>
           )}
-
-          {interview.status === InterviewStatus.TRANSCRIBED && 
-            (!interview.questionnaire ? (
-              <Button onClick={() => setIsQuestionnaireDialogOpen(true)}>
-                <ListIcon className="mr-2 h-4 w-4" />
-                Add Questionnaire
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsQuestionnaireDialogOpen(true)}>
-                  <ListIcon className="mr-2 h-4 w-4" />
-                  Change Questionnaire
-                </Button>
-                
-                {(!interview.generated_answers || Object.keys(interview.generated_answers).length === 0) && (
-                  <Button 
-                    onClick={generateAnswers}
-                    disabled={isLoading}
-                  >
-                    Generate Answers
-                  </Button>
-                )}
-              </div>
-            ))
-          }
         </div>
 
         {/* Simplified Interview Status Indicator - Optional and less prominent */}
@@ -496,84 +545,211 @@ export default function InterviewDetailPage() {
           )}
         </div>
 
-        {/* Questionnaire Section - Always visible when questionnaire exists */}
-        {interview.status === InterviewStatus.TRANSCRIBED && (interview.questionnaire || interview.questionnaire_id) && (
-          <div className="mb-6 p-4 border border-primary/50 rounded-md bg-primary/5">
-            <div className="flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-medium">Attached Questionnaire</h3>
-                  <Badge variant="outline" className="border-primary/30 bg-primary/10">
-                    <ClipboardList className="h-3 w-3 mr-1" />
-                    Questionnaire
-                  </Badge>
-                </div>
-                
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={async () => {
-                    try {
-                      await api.delete(`/api/interviews/${id}/remove-questionnaire`);
-                      toast.success('Questionnaire removed successfully');
-                      await fetchInterview();
-                    } catch (error) {
-                      toast.error('Failed to remove questionnaire');
-                    }
-                  }}
-                >
-                  Remove
-                </Button>
+        {/* Questionnaire Section - Displays all attached questionnaires */}
+        {interview.status === InterviewStatus.TRANSCRIBED && (
+          <div className="mb-6 rounded-md bg-background border shadow-sm">
+            <div className="px-4 py-3 border-b flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-medium">Attached Questionnaires</h3>
+                <Badge variant="outline" className="border-primary/30 bg-primary/10">
+                  <ClipboardList className="h-3 w-3 mr-1" />
+                  {interview.questionnaires?.length 
+                    ? `${interview.questionnaires.length} ${interview.questionnaires.length === 1 ? 'Questionnaire' : 'Questionnaires'}` 
+                    : interview.questionnaire 
+                      ? "1 Questionnaire" 
+                      : "No Questionnaires"}
+                </Badge>
               </div>
               
-              <div className="p-2 bg-background rounded border mb-3">
-                {interview.questionnaire ? (
-                  <Link href={`/questionnaires/${interview.questionnaire.id}`} className="font-medium hover:underline text-primary text-lg">
-                    {interview.questionnaire.title}
-                  </Link>
-                ) : (
-                  <div className="flex items-center">
-                    <span className="text-muted-foreground">
-                      Loading questionnaire details...
-                    </span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="ml-2"
-                      onClick={() => interview.questionnaire_id && fetchQuestionnaireById(interview.questionnaire_id)}
-                    >
-                      Refresh
-                    </Button>
-                  </div>
-                )}
-              </div>
-              
-              {/* Enhanced Generate Answers Button */}
-              <div className={`mt-2 p-3 ${!interview.generated_answers && "bg-primary/10 rounded-md border border-primary/30"}`}>
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">
-                    {interview.generated_answers && Object.keys(interview.generated_answers).length > 0 
-                      ? `${Object.keys(interview.generated_answers).length} answers generated` 
-                      : 'Generate answers from this interview using the questionnaire questions'}
-                  </div>
-                  
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setIsQuestionnaireDialogOpen(true)}
+              >
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Add Questionnaire
+              </Button>
+            </div>
+            
+            <div className="p-4">
+              {!interview.questionnaire && (!interview.questionnaires || interview.questionnaires.length === 0) ? (
+                <div className="text-center p-6">
+                  <p className="text-muted-foreground">No questionnaires attached yet</p>
                   <Button 
-                    onClick={generateAnswers}
-                    size={interview.generated_answers ? "sm" : "default"}
-                    disabled={isLoading}
-                    variant={interview.generated_answers ? "secondary" : "default"}
-                    className={interview.generated_answers 
-                      ? "bg-secondary text-secondary-foreground hover:bg-secondary/80" 
-                      : ""}
+                    variant="default" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setIsQuestionnaireDialogOpen(true)}
                   >
-                    <ClipboardList className="mr-2 h-4 w-4" />
-                    {interview.generated_answers && Object.keys(interview.generated_answers).length > 0 
-                      ? 'Regenerate Answers' 
-                      : 'Generate Answers'}
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Questionnaire
                   </Button>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Display all questionnaires from the questionnaires array if it exists */}
+                  {interview.questionnaires && interview.questionnaires.length > 0 ? (
+                    interview.questionnaires.map(questionnaire => (
+                      <div key={questionnaire.id} className="rounded-md border overflow-hidden">
+                        <div className="bg-muted/50 px-4 py-3 flex justify-between items-center">
+                          <Link href={`/questionnaires/${questionnaire.id}`} className="font-medium hover:underline text-primary">
+                            {questionnaire.title}
+                          </Link>
+                          
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-muted-foreground hover:text-foreground"
+                              onClick={() => generateAnswers(questionnaire.id)}
+                              disabled={isGeneratingAnswers[questionnaire.id] || isLoading}
+                            >
+                              {isGeneratingAnswers[questionnaire.id] ? (
+                                <>
+                                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <ClipboardList className="h-4 w-4 mr-1" />
+                                  {interview.generated_answers?.[questionnaire.id] 
+                                    ? 'Regenerate Answers' 
+                                    : 'Generate Answers'}
+                                </>
+                              )}
+                            </Button>
+                            
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={async () => {
+                                try {
+                                  console.log(`Attempting to remove questionnaire ${questionnaire.id} from interview ${id}`);
+                                  
+                                  // Explicitly construct the URL with query parameters
+                                  const response = await api.delete(`/api/interviews/${id}/remove-questionnaire`, {
+                                    questionnaire_id: questionnaire.id
+                                  });
+                                  
+                                  console.log('Remove questionnaire response:', response);
+                                  toast.success('Questionnaire removed successfully');
+                                  await fetchInterview();
+                                } catch (error) {
+                                  console.error('Failed to remove questionnaire:', error);
+                                  toast.error(`Failed to remove questionnaire: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                }
+                              }}
+                            >
+                              <span className="sr-only">Remove</span>
+                              <span className="text-sm">Remove</span>
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="p-4 bg-card">
+                          {questionnaire.questions?.length > 0 ? (
+                            <div className="grid gap-2">
+                              {questionnaire.questions.map((question, index) => (
+                                <div key={`question-${questionnaire.id}-${index}`} className="flex justify-between items-start gap-2 text-sm">
+                                  <p className="font-medium text-card-foreground">{question}</p>
+                                  <div className="text-xs px-2 py-1 rounded-full bg-muted flex-shrink-0">
+                                    {interview.generated_answers?.[questionnaire.id]?.[question] 
+                                      ? 'Answered' 
+                                      : 'Pending'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No questions found in this questionnaire</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : interview.questionnaire ? (
+                    // Fallback to the single questionnaire if questionnaires array is not populated
+                    <div className="rounded-md border overflow-hidden">
+                      <div className="bg-muted/50 px-4 py-3 flex justify-between items-center">
+                        <Link href={`/questionnaires/${interview.questionnaire.id}`} className="font-medium hover:underline text-primary">
+                          {interview.questionnaire.title}
+                        </Link>
+                        
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => generateAnswers(interview.questionnaire?.id)}
+                            disabled={isGeneratingAnswers[interview.questionnaire?.id || ''] || isLoading}
+                          >
+                            {isGeneratingAnswers[interview.questionnaire?.id || ''] ? (
+                              <>
+                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <ClipboardList className="h-4 w-4 mr-1" />
+                                {interview.generated_answers?.[interview.questionnaire?.id || ''] 
+                                  ? 'Regenerate Answers' 
+                                  : 'Generate Answers'}
+                              </>
+                            )}
+                          </Button>
+                          
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={async () => {
+                              if (!interview.questionnaire?.id) return;
+                              
+                              try {
+                                console.log(`Attempting to remove questionnaire ${interview.questionnaire.id} from interview ${id}`);
+                                
+                                // Explicitly construct the URL with query parameters
+                                const response = await api.delete(`/api/interviews/${id}/remove-questionnaire`, {
+                                  questionnaire_id: interview.questionnaire.id
+                                });
+                                
+                                console.log('Remove questionnaire response:', response);
+                                toast.success('Questionnaire removed successfully');
+                                await fetchInterview();
+                              } catch (error) {
+                                console.error('Failed to remove questionnaire:', error);
+                                toast.error(`Failed to remove questionnaire: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                              }
+                            }}
+                          >
+                            <span className="sr-only">Remove</span>
+                            <span className="text-sm">Remove</span>
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-card">
+                        {interview.questionnaire?.questions ? (
+                          <div className="grid gap-2">
+                            {interview.questionnaire.questions.map((question, index) => (
+                              <div key={`question-${interview.questionnaire?.id}-${index}`} className="flex justify-between items-start gap-2 text-sm">
+                                <p className="font-medium text-card-foreground">{question}</p>
+                                <div className="text-xs px-2 py-1 rounded-full bg-muted flex-shrink-0">
+                                  {interview.generated_answers?.[interview.questionnaire?.id || '']?.[question] 
+                                    ? 'Answered' 
+                                    : 'Pending'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No questions found in this questionnaire</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -582,11 +758,9 @@ export default function InterviewDetailPage() {
         <Dialog open={isQuestionnaireDialogOpen} onOpenChange={setIsQuestionnaireDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>{interview.questionnaire ? 'Change Questionnaire' : 'Add Questionnaire'}</DialogTitle>
+              <DialogTitle>Add Questionnaire</DialogTitle>
               <DialogDescription>
-                {interview.questionnaire 
-                  ? 'Select a different questionnaire to analyze this interview' 
-                  : 'Select a questionnaire to analyze this interview'}
+                Select a questionnaire to analyze this interview
               </DialogDescription>
             </DialogHeader>
             
@@ -694,14 +868,31 @@ export default function InterviewDetailPage() {
                 {interview.generated_answers && Object.keys(interview.generated_answers).length > 0 ? (
                   <div className="border rounded-md p-4 h-[calc(100vh-280px)] overflow-auto">
                     <h3 className="text-lg font-semibold mb-4">Generated Answers</h3>
-                    <div className="space-y-6">
-                      {Object.entries(interview.generated_answers).map(([question, answer]) => (
-                        <div key={`qa-${question.substring(0, 20)}`} className="space-y-2">
-                          <h4 className="text-md font-medium">{question}</h4>
-                          <p className="text-muted-foreground whitespace-pre-line">{answer}</p>
+                    
+                    {Object.entries(interview.generated_answers).map(([questionnaireId, answers]) => {
+                      // Find the questionnaire title if available
+                      const questionnaire = interview.questionnaires?.find(q => q.id === questionnaireId) || 
+                                            (interview.questionnaire?.id === questionnaireId ? interview.questionnaire : null);
+                      
+                      return (
+                        <div key={`questionnaire-${questionnaireId}`} className="mb-6">
+                          {questionnaire && (
+                            <h4 className="text-md font-medium mb-3 pb-2 border-b">
+                              Questionnaire: {questionnaire.title}
+                            </h4>
+                          )}
+                          
+                          <div className="space-y-6">
+                            {Object.entries(answers).map(([question, answer]) => (
+                              <div key={`qa-${questionnaireId}-${question.substring(0, 20)}`} className="space-y-2">
+                                <h4 className="text-md font-medium">{question}</h4>
+                                <p className="text-muted-foreground whitespace-pre-line">{answer}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="border rounded-md p-4 h-[calc(100vh-280px)] flex flex-col items-center justify-center">
