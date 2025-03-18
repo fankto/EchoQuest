@@ -53,9 +53,6 @@ class Settings(BaseSettings):
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_CHAT_MODEL: str = "gpt-4-turbo-preview"
     
-    # AssemblyAI for transcription
-    ASSEMBLY_API_KEY: str
-    
     # Qdrant
     QDRANT_URL: str = "http://qdrant:6333"
     QDRANT_COLLECTION_NAME: str = "transcripts"

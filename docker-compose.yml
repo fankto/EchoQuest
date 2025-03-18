@@ -57,7 +57,6 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-echoquest}:${POSTGRES_PASSWORD:-echoquest}@postgres:5432/${POSTGRES_DB:-echoquest}
       - REDIS_URL=redis://redis:6379/0
       - QDRANT_URL=http://qdrant:6333
-      - ASSEMBLY_API_KEY=${ASSEMBLY_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - JWT_SECRET=${JWT_SECRET:-supersecretkey}
       - ENVIRONMENT=development
