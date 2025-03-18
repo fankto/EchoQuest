@@ -11,9 +11,9 @@ async def add_admin_credits():
             print("Admin user not found!")
             return
             
-        # Add 100 more credits
+        # Set credits to exactly 100
         old_credits = user.available_interview_credits
-        user.available_interview_credits += 100
+        user.available_interview_credits = 100  # Set to exactly 100 instead of adding
         await db.commit()
         
         print(f"Admin user credits updated from {old_credits} to {user.available_interview_credits}")
