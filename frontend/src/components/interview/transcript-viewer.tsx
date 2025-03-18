@@ -63,8 +63,6 @@ export function TranscriptViewer({
   // New state for time editing
   const [editedSegmentStartTime, setEditedSegmentStartTime] = useState(0)
   const [editedSegmentEndTime, setEditedSegmentEndTime] = useState(0)
-  // Search functionality
-  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
 
   useEffect(() => {
     // Find the current segment based on audio playback time
@@ -342,15 +340,23 @@ export function TranscriptViewer({
   }
 
   const handleCancel = () => {
-    setEditedText(transcriptText)
+    setEditedText(originalText)
     setIsEditing(false)
   }
 
   const highlightSearchQuery = (text: string) => {
     if (!searchQuery) return text
-
-    const regex = new RegExp(`(${searchQuery})`, 'gi')
-    return text.replace(regex, '<mark>$1</mark>')
+    
+    // Split the text by search query and map over parts
+    return (
+      <>
+        {text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
+          part.toLowerCase() === searchQuery.toLowerCase() 
+            ? <mark key={`mark-${i}-${part.substring(0, 10)}`}>{part}</mark> 
+            : part
+        )}
+      </>
+    )
   }
 
   const playSegmentAudio = (segment: TranscriptSegment, index: number, e?: React.MouseEvent<HTMLButtonElement>) => {
@@ -477,21 +483,7 @@ export function TranscriptViewer({
             <span>Transcript</span>
           </CardTitle>
           
-          {/* Search input */}
-          <div className="relative w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <Input
-              type="text"
-              placeholder="Search transcript..."
-              value={localSearchQuery}
-              onChange={(e) => setLocalSearchQuery(e.target.value)}
-              className="pl-10 h-9 focus:outline-none"
-            />
-          </div>
-          
-          {/* Remove global edit button - it will be moved to transcript tab */}
+          {/* Remove search input */}
         </div>
       </CardHeader>
       
@@ -637,17 +629,7 @@ export function TranscriptViewer({
                             </div>
                           </div>
                           <div className="text-sm">
-                            {searchQuery ? (
-                              <>
-                                {segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
-                                  part.toLowerCase() === searchQuery.toLowerCase() 
-                                    ? <mark key={`segment-${segment.start_time}-mark-${i}-${part.substring(0, 10)}`}>{part}</mark> 
-                                    : part
-                                )}
-                              </>
-                            ) : (
-                              segment.text
-                            )}
+                            {highlightSearchQuery(segment.text)}
                           </div>
                         </>
                       )}

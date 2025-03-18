@@ -1,6 +1,8 @@
 import json
 import uuid
 from typing import Any, List, Optional
+import openai
+import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import JSONResponse
@@ -17,7 +19,7 @@ from app.crud.crud_interview import interview_crud
 from app.crud.crud_transaction import transaction_crud
 from app.crud.crud_questionnaire import questionnaire_crud
 from app.db.session import get_db
-from app.models.models import Interview, InterviewStatus, TransactionType, User, Transaction
+from app.models.models import Interview, InterviewStatus, TransactionType, User, Transaction, Questionnaire
 from app.schemas.interview import (
     InterviewCreate,
     InterviewOut,
@@ -31,6 +33,85 @@ from app.services.file_service import file_service
 from app.services.transcription_service import transcription_service
 
 router = APIRouter()
+
+
+# Function to generate answers from transcript using OpenAI API
+async def generate_answers_from_transcript(interview_id: str, db: AsyncSession):
+    """
+    Generate answers for questionnaire questions using OpenAI's GPT model.
+    This runs as a background task.
+    
+    Args:
+        interview_id: Interview ID
+        db: Database session
+    """
+    try:
+        # Create a new session for background task
+        async with db:
+            # Get interview
+            result = await db.execute(
+                select(Interview).where(Interview.id == uuid.UUID(interview_id))
+            )
+            interview = result.scalars().first()
+            
+            if not interview or not interview.transcription or not interview.questionnaire_id:
+                logger.error(f"Invalid interview state for answer generation: {interview_id}")
+                return
+            
+            # Get questionnaire directly from Questionnaire model
+            result = await db.execute(
+                select(Questionnaire).where(Questionnaire.id == interview.questionnaire_id)
+            )
+            questionnaire = result.scalars().first()
+            
+            if not questionnaire or not questionnaire.questions:
+                logger.error(f"No questions found in questionnaire: {interview.questionnaire_id}")
+                return
+            
+            # Get questions
+            questions = questionnaire.questions
+            
+            # Initialize answers dict
+            answers = {}
+            
+            # Set up OpenAI client
+            client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            
+            # Process each question
+            for question in questions:
+                try:
+                    # Use GPT-4o-mini to generate the answer
+                    response = await client.chat.completions.create(
+                        model="gpt-4o-mini",  # Using GPT-4o-mini for answer generation
+                        messages=[
+                            {"role": "system", "content": "You are an AI assistant that analyzes interview transcripts and answers questions based on the content. Provide concise and accurate answers."},
+                            {"role": "user", "content": f"Here is an interview transcript:\n\n{interview.transcription}\n\nBased on this transcript, please answer the following question:\n{question}"}
+                        ],
+                        temperature=0.3,
+                        max_tokens=500,
+                    )
+                    
+                    # Extract answer
+                    answer = response.choices[0].message.content.strip()
+                    
+                    # Store answer
+                    answers[question] = answer
+                    
+                    # Add some delay to avoid rate limiting
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    logger.error(f"Error generating answer for question: {e}")
+                    answers[question] = f"Error generating answer: {str(e)}"
+            
+            # Update interview with generated answers
+            interview.generated_answers = answers
+            await db.commit()
+            
+            logger.info(f"Successfully generated answers for interview {interview_id}")
+    
+    except Exception as e:
+        logger.error(f"Error in generate_answers_from_transcript: {e}")
 
 
 @router.get("/", response_model=Page[InterviewOut])
@@ -548,6 +629,47 @@ async def attach_questionnaire(
     return interview
 
 
+@router.delete("/{interview_id}/remove-questionnaire", response_model=InterviewOut)
+async def remove_questionnaire(
+    interview_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Remove a questionnaire from an interview.
+    """
+    interview = await interview_crud.get(db, id=interview_id)
+    if not interview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found",
+        )
+    
+    # Check ownership
+    if interview.owner_id != current_user.id:
+        # TODO: Add organization-based permissions
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    
+    # Check if interview has a questionnaire
+    if not interview.questionnaire_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Interview does not have a questionnaire attached",
+        )
+    
+    # Remove questionnaire_id and any generated answers
+    interview.questionnaire_id = None
+    interview.generated_answers = None
+    
+    await db.commit()
+    await db.refresh(interview)
+    
+    return interview
+
+
 @router.get("/by-questionnaire/{questionnaire_id}", response_model=List[InterviewOut])
 async def list_interviews_by_questionnaire(
     questionnaire_id: uuid.UUID,
@@ -584,3 +706,52 @@ async def list_interviews_by_questionnaire(
     interviews = result.scalars().all()
     
     return interviews
+
+
+@router.post("/{interview_id}/generate-answers", response_model=InterviewTaskResponse)
+async def generate_answers(
+    interview_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Generate answers for questionnaire questions based on interview transcript.
+    """
+    interview = await interview_crud.get(db, id=interview_id)
+    if not interview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found",
+        )
+    
+    # Check ownership
+    if interview.owner_id != current_user.id:
+        # TODO: Add organization-based permissions
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    
+    # Check if the interview has been transcribed
+    if interview.status != InterviewStatus.TRANSCRIBED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Interview must be transcribed first",
+        )
+    
+    # Check if a questionnaire is attached
+    if not interview.questionnaire_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No questionnaire attached to this interview",
+        )
+    
+    # Add to background task
+    background_tasks.add_task(
+        generate_answers_from_transcript,
+        str(interview_id),
+        db,
+    )
+    
+    return {"status": "processing", "message": "Answer generation started"}
