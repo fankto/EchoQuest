@@ -7,12 +7,15 @@ from fastapi.responses import JSONResponse
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select
+from loguru import logger
 
 from app.api.deps import get_current_active_user
 from app.core.config import settings
 from app.core.exceptions import InsufficientCreditsError
 from app.crud.crud_interview import interview_crud
 from app.crud.crud_transaction import transaction_crud
+from app.crud.crud_questionnaire import questionnaire_crud
 from app.db.session import get_db
 from app.models.models import Interview, InterviewStatus, TransactionType, User, Transaction
 from app.schemas.interview import (
@@ -26,8 +29,6 @@ from app.schemas.interview import (
 )
 from app.services.file_service import file_service
 from app.services.transcription_service import transcription_service
-from sqlalchemy import delete
-from loguru import logger
 
 router = APIRouter()
 
@@ -545,3 +546,41 @@ async def attach_questionnaire(
     await db.refresh(interview)
     
     return interview
+
+
+@router.get("/by-questionnaire/{questionnaire_id}", response_model=List[InterviewOut])
+async def list_interviews_by_questionnaire(
+    questionnaire_id: uuid.UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    List interviews that use a specific questionnaire.
+    """
+    # Get the questionnaire first to check permissions
+    questionnaire = await questionnaire_crud.get(db, id=questionnaire_id)
+    
+    if not questionnaire:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Questionnaire not found",
+        )
+    
+    # Check if user can access the questionnaire
+    if questionnaire.creator_id != current_user.id:
+        # TODO: Add organization-based permissions
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    
+    # Query for interviews with this questionnaire
+    query = select(Interview).where(
+        Interview.questionnaire_id == questionnaire_id,
+        Interview.owner_id == current_user.id,
+    ).order_by(Interview.updated_at.desc())
+    
+    result = await db.execute(query)
+    interviews = result.scalars().all()
+    
+    return interviews

@@ -18,8 +18,11 @@ from app.schemas.questionnaire import (
     QuestionnairePatch,
 )
 from app.services.questionnaire_service import questionnaire_service
+import logging
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 @router.post("/", response_model=QuestionnaireOut)
@@ -87,9 +90,11 @@ async def read_questionnaires(
     # This is a simplified version - in a real app, you'd get the user's organizations
     organization_id = None
     
+    logger.debug(f"Fetching questionnaires for user {current_user.id}")
     questionnaires = await questionnaire_crud.get_multi_by_creator(
         db, creator_id=current_user.id, organization_id=organization_id, skip=skip, limit=limit
     )
+    logger.debug(f"Found {len(questionnaires)} questionnaires")
     
     # Add interview count for each questionnaire
     result = []
@@ -100,6 +105,7 @@ async def read_questionnaires(
             "interview_count": count,
         })
     
+    logger.debug(f"Returning {len(result)} questionnaires")
     return result
 
 

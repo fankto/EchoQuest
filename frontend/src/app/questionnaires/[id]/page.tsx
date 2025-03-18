@@ -1,18 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { QuestionnaireForm } from '@/components/questionnaire/questionnaire-form'
 import { QuestionList } from '@/components/questionnaire/question-list'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ChevronLeft, FileText, Pencil, Trash } from 'lucide-react'
+import { ChevronLeft, FileText, Pencil, Trash, PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '@/lib/api-client'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
 type Questionnaire = {
   id: string
@@ -33,6 +42,12 @@ export default function QuestionnairePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [relatedInterviews, setRelatedInterviews] = useState<Array<{id: string, title: string, interviewee_name: string, date: string}>>([])
+  const [isLoadingInterviews, setIsLoadingInterviews] = useState(false)
+  const [availableInterviews, setAvailableInterviews] = useState<Array<{id: string, title: string, interviewee_name: string, date: string}>>([])
+  const [selectedInterviewId, setSelectedInterviewId] = useState<string>("")
+  const [isLinkingDialogOpen, setIsLinkingDialogOpen] = useState(false)
+  const [isLinkingInterview, setIsLinkingInterview] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -51,6 +66,28 @@ export default function QuestionnairePage() {
     fetchQuestionnaire()
   }, [id])
 
+  const fetchRelatedInterviews = useCallback(async () => {
+    if (!id) return
+
+    try {
+      setIsLoadingInterviews(true)
+      const data = await api.get<Array<{id: string, title: string, interviewee_name: string, date: string}>>(`/api/interviews/by-questionnaire/${id}`)
+      if (data) {
+        setRelatedInterviews(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch related interviews:', error)
+    } finally {
+      setIsLoadingInterviews(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (id && !isLoading) {
+      fetchRelatedInterviews()
+    }
+  }, [id, isLoading, fetchRelatedInterviews])
+
   const handleDelete = async () => {
     try {
       setIsDeleting(true)
@@ -64,13 +101,64 @@ export default function QuestionnairePage() {
     }
   }
 
+  const fetchAvailableInterviews = useCallback(async () => {
+    if (!id) return
+    
+    try {
+      setIsLinkingInterview(false)
+      const data = await api.get<Array<{id: string, title: string, interviewee_name: string, date: string, status: string}>>('/api/interviews')
+      
+      if (data) {
+        const availableOnes = data.filter(interview => 
+          interview.status === 'TRANSCRIBED' && 
+          (!relatedInterviews.some(ri => ri.id === interview.id))
+        )
+        setAvailableInterviews(availableOnes)
+      }
+    } catch (error) {
+      console.error('Failed to fetch available interviews:', error)
+    }
+  }, [id, relatedInterviews])
+
+  const linkInterview = async () => {
+    if (!selectedInterviewId) {
+      toast.error('Please select an interview to link')
+      return
+    }
+
+    try {
+      setIsLinkingInterview(true)
+      const formData = new FormData()
+      formData.append('questionnaire_id', id as string)
+      
+      await api.upload(`/api/interviews/${selectedInterviewId}/attach-questionnaire`, formData)
+      toast.success('Interview linked successfully')
+      
+      await fetchRelatedInterviews()
+      await fetchAvailableInterviews()
+      
+      setSelectedInterviewId("")
+      setIsLinkingDialogOpen(false)
+    } catch (error) {
+      toast.error('Failed to link interview')
+    } finally {
+      setIsLinkingInterview(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isLinkingDialogOpen) {
+      fetchAvailableInterviews()
+    }
+  }, [isLinkingDialogOpen, fetchAvailableInterviews])
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col">
         <DashboardHeader />
         <main className="flex-1 p-8 pt-6">
           <div className="flex justify-center p-8">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
           </div>
         </main>
       </div>
@@ -85,9 +173,11 @@ export default function QuestionnairePage() {
           <div className="flex flex-col items-center justify-center p-8">
             <FileText className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-4">Questionnaire not found</h2>
-            <Button as={Link} href="/questionnaires">
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Back to Questionnaires
+            <Button asChild>
+              <Link href="/questionnaires">
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back to Questionnaires
+              </Link>
             </Button>
           </div>
         </main>
@@ -135,7 +225,7 @@ export default function QuestionnairePage() {
           <div>
             <Button variant="outline" size="sm" asChild className="mb-4">
               <Link href="/questionnaires">
-                <ChevronLeft className="mr-1 h-4 w-4" />
+                <ChevronLeft className="mr-2 h-4 w-4" />
                 Back to Questionnaires
               </Link>
             </Button>
@@ -212,12 +302,105 @@ export default function QuestionnairePage() {
           
           <TabsContent value="interviews" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Related Interviews</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Related Interviews</CardTitle>
+                  <CardDescription>
+                    Interviews using this questionnaire
+                  </CardDescription>
+                </div>
+                <Dialog open={isLinkingDialogOpen} onOpenChange={setIsLinkingDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <PlusIcon className="mr-2 h-4 w-4" />
+                      Link Interview
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Link an Existing Interview</DialogTitle>
+                      <DialogDescription>
+                        Select a transcribed interview to use this questionnaire for analysis.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    {availableInterviews.length > 0 ? (
+                      <>
+                        <Select
+                          value={selectedInterviewId}
+                          onValueChange={setSelectedInterviewId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an interview" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <ScrollArea className="h-60">
+                              {availableInterviews.map((interview) => (
+                                <SelectItem key={interview.id} value={interview.id}>
+                                  {interview.title} - {interview.interviewee_name}
+                                </SelectItem>
+                              ))}
+                            </ScrollArea>
+                          </SelectContent>
+                        </Select>
+                        
+                        <DialogFooter>
+                          <Button
+                            onClick={linkInterview}
+                            disabled={!selectedInterviewId || isLinkingInterview}
+                          >
+                            {isLinkingInterview ? (
+                              <>
+                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                                Linking...
+                              </>
+                            ) : (
+                              "Link Interview"
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </>
+                    ) : (
+                      <div className="py-4 text-center">
+                        <p className="text-muted-foreground mb-2">
+                          No available transcribed interviews found to link.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Only transcribed interviews that are not already using this questionnaire can be linked.
+                        </p>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
-                {questionnaire.interview_count > 0 ? (
-                  <p>This questionnaire is used in {questionnaire.interview_count} interviews.</p>
+                {isLoadingInterviews ? (
+                  <div className="flex justify-center py-4">
+                    <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
+                  </div>
+                ) : relatedInterviews.length > 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground mb-2">
+                      This questionnaire is used in {relatedInterviews.length} {relatedInterviews.length === 1 ? 'interview' : 'interviews'}.
+                    </p>
+                    <div className="border rounded-md divide-y">
+                      {relatedInterviews.map((interview) => (
+                        <div key={interview.id} className="p-3 hover:bg-muted flex justify-between items-center">
+                          <div>
+                            <h4 className="font-medium">{interview.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Interview with {interview.interviewee_name} on {new Date(interview.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/interviews/${interview.id}`}>
+                              View
+                            </Link>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">

@@ -89,9 +89,12 @@ export default function InterviewDetailPage() {
 
   const fetchQuestionnaires = useCallback(async () => {
     try {
-      const data = await api.get('/api/questionnaires')
-      if (data && data.items) {
-        setQuestionnaires(data.items)
+      console.log("Fetching questionnaires...")
+      const data = await api.get<Array<{id: string, title: string}>>('/api/questionnaires')
+      console.log("Received questionnaires data:", data)
+      if (data) {
+        setQuestionnaires(data)
+        console.log("Set questionnaires state to:", data)
       }
     } catch (error) {
       console.error('Failed to fetch questionnaires:', error)
@@ -358,18 +361,34 @@ export default function InterviewDetailPage() {
                             <SelectValue placeholder="Select a questionnaire" />
                           </SelectTrigger>
                           <SelectContent>
-                            {questionnaires.map((q) => (
-                              <SelectItem key={q.id} value={q.id}>{q.title}</SelectItem>
-                            ))}
+                            {questionnaires.length === 0 ? (
+                              <div className="p-2 text-red-500">No questionnaires found in state!</div>
+                            ) : (
+                              questionnaires.map((q) => (
+                                <SelectItem key={q.id} value={q.id}>{q.title}</SelectItem>
+                              ))
+                            )}
+                            <div className="p-2 text-xs text-muted-foreground border-t mt-2">
+                              Debug: {questionnaires.length} questionnaires loaded
+                            </div>
                           </SelectContent>
                         </Select>
                         
-                        <div className="flex justify-start mt-2">
+                        <div className="flex justify-between mt-2">
                           <Button variant="link" asChild className="px-0">
                             <Link href="/questionnaires/new" target="_blank">
                               <PlusIcon className="h-4 w-4 mr-1" />
                               Create New Questionnaire
                             </Link>
+                          </Button>
+                          
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={fetchQuestionnaires}
+                            type="button"
+                          >
+                            Refresh List
                           </Button>
                         </div>
                       </div>
