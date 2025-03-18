@@ -8,7 +8,7 @@ from app.api.deps import get_current_active_user
 from app.core.exceptions import InsufficientCreditsError
 from app.crud.crud_interview import interview_crud
 from app.db.session import get_db
-from app.models.models import User
+from app.models.models import User, ChatMessage
 from app.schemas.chat import ChatMessageCreate, ChatMessageOut, ChatRequest, ChatResponse
 from app.services.chat_service import chat_service
 
@@ -40,8 +40,24 @@ async def get_chat_messages(
             detail="Not enough permissions",
         )
     
-    # Get chat messages
-    return interview.chat_messages
+    try:
+        # Get chat messages - use SQLAlchemy to fetch related messages
+        # instead of directly accessing interview.chat_messages
+        from sqlalchemy import select
+        
+        query = select(ChatMessage).filter(ChatMessage.interview_id == interview_id)
+        result = await db.execute(query)
+        messages = result.scalars().all()
+        
+        return messages
+    except Exception as e:
+        # Log and handle exceptions
+        import logging
+        logging.error(f"Error fetching chat messages: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching chat messages: {str(e)}",
+        )
 
 
 @router.post("/{interview_id}/chat", response_model=ChatResponse)
@@ -90,15 +106,25 @@ async def chat_with_interview(
             message_text=chat_request.message,
         )
         
-        # Get recent context
-        messages = interview.chat_messages[-10:] if interview.chat_messages else []
+        # Get recent context using a proper query instead of accessing relationship directly
+        from sqlalchemy import select
+        
+        query = select(ChatMessage).filter(
+            ChatMessage.interview_id == interview_id
+        ).order_by(ChatMessage.created_at.desc()).limit(10)
+        
+        result = await db.execute(query)
+        recent_messages = list(reversed(result.scalars().all()))
+        
+        # Add the new user message to the context
+        messages = recent_messages + [user_message]
         
         # Generate AI response
         assistant_message = await chat_service.generate_assistant_response(
             db=db,
             interview=interview,
             user=current_user,
-            context_messages=messages + [user_message],
+            context_messages=messages,
         )
         
         # Commit changes
@@ -119,6 +145,8 @@ async def chat_with_interview(
     except Exception as e:
         # Rollback transaction on error
         await db.rollback()
+        import logging
+        logging.error(f"Error in chat_with_interview: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

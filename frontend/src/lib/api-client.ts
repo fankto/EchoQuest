@@ -8,9 +8,7 @@ const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
-  },
-  // Add CORS-related settings
-  withCredentials: true,
+  }
 });
 
 // Add interceptor for adding auth token
@@ -154,25 +152,25 @@ export const api = {
   get: <T>(url: string, config?: AxiosRequestConfig) => 
     apiRequest<T>('get', url, undefined, config),
   
-  post: <T>(url: string, data?: any, config?: AxiosRequestConfig) => {
+  post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) => {
     // Automatically detect FormData and set the proper headers
     if (typeof window !== 'undefined' && data instanceof FormData) {
       console.log('FormData detected, using appropriate headers');
       return api.upload<T>(url, data, config);
     }
-    return apiRequest<T>('post', url, data, config);
+    return apiRequest<T>('post', url, data as Record<string, unknown>, config);
   },
   
   put: <T>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig) => 
     apiRequest<T>('put', url, data, config),
   
-  patch: <T>(url: string, data?: any, config?: AxiosRequestConfig) => {
+  patch: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) => {
     // Automatically detect FormData and set the proper headers
     if (typeof window !== 'undefined' && data instanceof FormData) {
       console.log('FormData detected in patch, using appropriate headers');
       return api.upload<T>(url, data, config);
     }
-    return apiRequest<T>('patch', url, data, config);
+    return apiRequest<T>('patch', url, data as Record<string, unknown>, config);
   },
   
   delete: <T>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig) => {

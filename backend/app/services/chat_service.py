@@ -137,7 +137,7 @@ class ChatService:
                 raise InsufficientCreditsError("Not enough chat tokens remaining for response")
             
             # Call OpenAI API
-            response = await openai.chat.completions.create(
+            response = openai.chat.completions.create(
                 model=settings.OPENAI_CHAT_MODEL,
                 messages=messages,
                 max_tokens=max_tokens,
