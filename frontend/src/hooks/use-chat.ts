@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import type { ChatMessage, ChatResponse, TranscriptMatch } from '@/types/chat'
+import type { ChatMessage, ChatResponse, TranscriptMatch, ChatSession } from '@/types/chat'
 import { toast } from 'sonner'
 import api from '@/lib/api-client'
 
@@ -22,12 +22,16 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
   const [remainingTokens, setRemainingTokens] = useState<number | null>(null)
   const [transcriptMatches, setTranscriptMatches] = useState<TranscriptMatch[]>([])
   const [streamingMessage, setStreamingMessage] = useState<ChatMessage | null>(null)
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
+  const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(null)
+  
   const contentRef = useRef<string>('')
   const hasFetchedRef = useRef(false)
   const isLoadingRef = useRef(false)
   const isMountedRef = useRef(true)
   const fetchRequested = useRef(false)
   const interviewIdRef = useRef<string>(interviewId)
+  const activeChatSessionIdRef = useRef<string | null>(null)
 
   // Update the interview ID ref when it changes
   useEffect(() => {
@@ -54,6 +58,135 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
     };
   }, []);
 
+  // Update the active chat session ref when it changes
+  useEffect(() => {
+    activeChatSessionIdRef.current = activeChatSessionId;
+  }, [activeChatSessionId]);
+
+  // Fetch chat sessions
+  const fetchChatSessions = useCallback(async () => {
+    if (!isMountedRef.current || !interviewIdRef.current) return [];
+    
+    try {
+      const data = await api.get<ChatSession[]>(`/api/chat/${interviewIdRef.current}/chat-sessions`);
+      
+      if (isMountedRef.current && Array.isArray(data)) {
+        setChatSessions(data);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch chat sessions:', error);
+      return [];
+    }
+  }, []);
+
+  // Create a new chat session
+  const createChatSession = useCallback(async (title: string = "New Chat") => {
+    if (!isMountedRef.current || !interviewIdRef.current) return null;
+    
+    try {
+      const response = await api.post<ChatSession>(`/api/chat/${interviewIdRef.current}/chat-sessions`, {
+        title
+      });
+      
+      if (isMountedRef.current) {
+        setChatSessions(prev => [response, ...prev]);
+        setActiveChatSessionId(response.id);
+        activeChatSessionIdRef.current = response.id;
+        
+        // Clear messages since we're starting a new chat
+        setMessages([]);
+      }
+      
+      return response;
+    } catch (error) {
+      const apiError = error as ApiError;
+      onError?.(apiError);
+      toast.error('Failed to create chat session');
+      throw error;
+    }
+  }, [onError]);
+
+  // Rename a chat session
+  const renameChatSession = useCallback(async (sessionId: string, title: string) => {
+    if (!isMountedRef.current || !interviewIdRef.current) return null;
+    
+    try {
+      const response = await api.put<ChatSession>(`/api/chat/${interviewIdRef.current}/chat-sessions/${sessionId}`, {
+        title
+      });
+      
+      if (isMountedRef.current) {
+        setChatSessions(prev => prev.map(session => 
+          session.id === sessionId ? response : session
+        ));
+      }
+      
+      return response;
+    } catch (error) {
+      const apiError = error as ApiError;
+      onError?.(apiError);
+      toast.error('Failed to rename chat session');
+      throw error;
+    }
+  }, [onError]);
+
+  // Delete a chat session
+  const deleteChatSession = useCallback(async (sessionId: string) => {
+    if (!isMountedRef.current || !interviewIdRef.current) return false;
+    
+    try {
+      await api.delete(`/api/chat/${interviewIdRef.current}/chat-sessions/${sessionId}`);
+      
+      if (isMountedRef.current) {
+        setChatSessions(prev => prev.filter(session => session.id !== sessionId));
+        
+        // If the active session was deleted, reset
+        if (activeChatSessionIdRef.current === sessionId) {
+          setActiveChatSessionId(null);
+          activeChatSessionIdRef.current = null;
+          setMessages([]);
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      const apiError = error as ApiError;
+      onError?.(apiError);
+      toast.error('Failed to delete chat session');
+      throw error;
+    }
+  }, [onError]);
+
+  // Load messages for a specific chat session
+  const loadChatSession = useCallback(async (sessionId: string) => {
+    if (!isMountedRef.current || !interviewIdRef.current) return;
+    
+    try {
+      setIsLoading(true);
+      
+      const data = await api.get<ChatMessage[]>(`/api/chat/${interviewIdRef.current}/messages?chat_session_id=${sessionId}`);
+      
+      if (isMountedRef.current) {
+        setMessages(data);
+        setActiveChatSessionId(sessionId);
+        activeChatSessionIdRef.current = sessionId;
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        const apiError = error as ApiError;
+        setError(apiError);
+        onError?.(apiError);
+        toast.error('Failed to load chat session');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [onError]);
+
   // Fetch message history
   const fetchMessages = useCallback(async () => {
     // Prevent multiple fetches and check loading state
@@ -68,7 +201,16 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
       // Clear the fetch requested flag
       fetchRequested.current = false;
       
-      const data = await api.get<ChatMessage[]>(`/api/chat/${interviewIdRef.current}/messages`);
+      // Fetch chat sessions first
+      await fetchChatSessions();
+      
+      // Build the URL with chat session ID if we have one
+      let url = `/api/chat/${interviewIdRef.current}/messages`;
+      if (activeChatSessionIdRef.current) {
+        url += `?chat_session_id=${activeChatSessionIdRef.current}`;
+      }
+      
+      const data = await api.get<ChatMessage[]>(url);
       
       // Only update state if component is still mounted and data is valid
       if (isMountedRef.current && Array.isArray(data)) {
@@ -89,7 +231,7 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
       }
       isLoadingRef.current = false;
     }
-  }, [onError]);
+  }, [onError, fetchChatSessions]);
   
   // Dedicated useEffect for handling the initial fetch and any refetches
   useEffect(() => {
@@ -115,13 +257,27 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
     try {
       isLoadingRef.current = true;
       setIsLoading(true);
-      const response = await api.post<ChatResponse>(`/api/chat/${interviewIdRef.current}/chat`, {
-        message: content
-      });
+      
+      // Prepare request data with chat session ID if available
+      const requestData = {
+        message: content,
+        chat_session_id: activeChatSessionIdRef.current
+      };
+      
+      const response = await api.post<ChatResponse>(`/api/chat/${interviewIdRef.current}/chat`, requestData);
       
       if (isMountedRef.current) {
         setMessages(prev => [...prev, response.user_message, response.assistant_message]);
         setRemainingTokens(response.remaining_tokens);
+        
+        // Update active chat session if one was created or used
+        if (response.chat_session_id && response.chat_session_id !== activeChatSessionIdRef.current) {
+          setActiveChatSessionId(response.chat_session_id);
+          activeChatSessionIdRef.current = response.chat_session_id;
+          
+          // Refresh chat sessions list to get the updated/new session
+          fetchChatSessions();
+        }
       }
       
       return response;
@@ -145,10 +301,10 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
       }
       isLoadingRef.current = false;
     }
-  }, [onError]);
+  }, [onError, fetchChatSessions]);
 
   // Stream a message
-  const streamMessage = useCallback(async (content: string) => {
+  const streamMessage = useCallback(async (content: string, chatSessionId: string | null = null) => {
     if (!content.trim() || isLoadingRef.current || !isMountedRef.current) return;
     
     try {
@@ -180,6 +336,12 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
       // Set the streaming message
       setStreamingMessage(assistantMessage);
       
+      // Prepare request data with chat session ID if available
+      const requestData = {
+        message: content,
+        chat_session_id: chatSessionId || activeChatSessionIdRef.current
+      };
+      
       // Open EventSource connection
       const url = `${api.getBaseUrl()}/api/chat/${interviewIdRef.current}/chat/stream`
       const token = localStorage.getItem('token')
@@ -196,7 +358,7 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ message: content }),
+        body: JSON.stringify(requestData),
         signal,
       })
       
@@ -205,16 +367,22 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
         throw new Error(errorData.detail || 'Failed to stream message')
       }
       
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('Stream reader not available')
+      if (!response.body) {
+        throw new Error('Response body is null')
+      }
       
+      const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let completeContent = ''
       let receivedTokens = 0
+      let receivedChatSessionId = null
       
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        
+        if (done) {
+          break
+        }
         
         const chunk = decoder.decode(value)
         const lines = chunk.split('\n\n')
@@ -244,12 +412,13 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
             } else if (eventData.type === 'done') {
               // Store received tokens to use locally without dependency
               receivedTokens = eventData.remaining_tokens
+              receivedChatSessionId = eventData.chat_session_id || null
               
               // Message is complete, create final message with all content
               const finalMessage = {
                 ...assistantMessage,
                 content: completeContent,
-              }
+              };
               
               // Only update state if component is still mounted
               if (isMountedRef.current) {
@@ -262,13 +431,23 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
                 
                 // Update tokens
                 setRemainingTokens(receivedTokens)
+                
+                // Update active chat session if one was created or used
+                if (receivedChatSessionId && receivedChatSessionId !== activeChatSessionIdRef.current) {
+                  setActiveChatSessionId(receivedChatSessionId);
+                  activeChatSessionIdRef.current = receivedChatSessionId;
+                  
+                  // Refresh chat sessions to reflect the new message
+                  fetchChatSessions();
+                }
               }
               
               // Return early since we've handled the message
               return { 
                 user_message: userMessage, 
                 assistant_message: finalMessage,
-                remaining_tokens: receivedTokens
+                remaining_tokens: receivedTokens,
+                chat_session_id: receivedChatSessionId
               }
             } else if (eventData.type === 'error') {
               throw new Error(eventData.content || 'Error in stream')
@@ -290,6 +469,9 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
         setMessages(prev => [...prev, finalMessage])
         setStreamingMessage(null)
         contentRef.current = ''
+        
+        // Update chat sessions to reflect the new message
+        fetchChatSessions();
       }
       
       // Don't reference remainingTokens state directly
@@ -299,7 +481,8 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
           ...assistantMessage,
           content: completeContent,
         },
-        remaining_tokens: receivedTokens || 0
+        remaining_tokens: receivedTokens || 0,
+        chat_session_id: receivedChatSessionId
       }
     } catch (error) {
       if (isMountedRef.current) {
@@ -325,7 +508,7 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
       }
       isLoadingRef.current = false
     }
-  }, [onError]);
+  }, [onError, fetchChatSessions]);
 
   // Search transcript
   const searchTranscript = useCallback(async (query: string, limit = 5) => {
@@ -347,6 +530,15 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
     }
   }, []);
 
+  // Initialize component by fetching chat sessions and messages
+  useEffect(() => {
+    if (interviewId && isMountedRef.current) {
+      fetchChatSessions().then(() => {
+        fetchMessages();
+      });
+    }
+  }, [interviewId, fetchChatSessions, fetchMessages]);
+
   return {
     messages,
     isLoading,
@@ -354,9 +546,15 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
     remainingTokens,
     transcriptMatches,
     streamingMessage,
+    chatSessions,
+    activeChatSessionId,
     sendMessage,
     streamMessage,
     fetchMessages,
-    searchTranscript
+    searchTranscript,
+    createChatSession,
+    renameChatSession,
+    deleteChatSession,
+    loadChatSession
   }
 }

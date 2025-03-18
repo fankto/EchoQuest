@@ -49,6 +49,7 @@ class User(Base):
     organizations = relationship("OrganizationMember", back_populates="user")
     interviews = relationship("Interview", back_populates="owner")
     questionnaires = relationship("Questionnaire", back_populates="creator")
+    chat_messages = relationship("ChatMessage", back_populates="user")
     
     # Credits
     available_interview_credits = Column(Integer, default=0)
@@ -184,25 +185,42 @@ class Interview(Base):
     questionnaires = relationship("Questionnaire", secondary=interview_questionnaire, back_populates="interviews")
     owner = relationship("User", back_populates="interviews")
     organization = relationship("Organization", back_populates="interviews")
-    chat_messages = relationship("ChatMessage", back_populates="interview")
+    chat_messages = relationship("ChatMessage", back_populates="interview", cascade="all, delete-orphan")
+    chat_sessions = relationship("ChatSession", back_populates="interview", cascade="all, delete-orphan")
 
 
 class ChatMessage(Base):
-    """Chat message model for interview conversations"""
+    """Model for chat messages"""
     __tablename__ = "chat_messages"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    interview_id = Column(UUID(as_uuid=True), ForeignKey("interviews.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    role = Column(String, nullable=False)  # 'user' or 'assistant'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    interview_id = Column(UUID(as_uuid=True), ForeignKey("interviews.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String, nullable=False)  # "user" or "assistant"
     content = Column(Text, nullable=False)
-    tokens_used = Column(Integer, nullable=False, default=0)  # Number of tokens used
-    
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+    tokens_used = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    chat_session_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=True)
+
     # Relationships
     interview = relationship("Interview", back_populates="chat_messages")
+    user = relationship("User", back_populates="chat_messages")
+    chat_session = relationship("ChatSession", back_populates="messages")
+
+
+class ChatSession(Base):
+    """Model for chat sessions (conversations)"""
+    __tablename__ = "chat_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    interview_id = Column(UUID(as_uuid=True), ForeignKey("interviews.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False, default="New Chat")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    interview = relationship("Interview", back_populates="chat_sessions")
+    messages = relationship("ChatMessage", back_populates="chat_session", cascade="all, delete-orphan")
 
 
 class TransactionType(str, Enum):

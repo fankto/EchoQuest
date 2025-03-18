@@ -1,46 +1,72 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel, Field
 
 
 class ChatMessageBase(BaseModel):
-    """Base Chat Message schema"""
-    interview_id: uuid.UUID
-    role: str = Field(..., description="Either 'user' or 'assistant'")
-    content: str = Field(..., description="Message content")
+    """Base schema for chat message"""
+    role: str
+    content: str
 
 
 class ChatMessageCreate(ChatMessageBase):
-    """Chat Message creation schema"""
-    user_id: uuid.UUID
-    tokens_used: int = Field(0, description="Tokens used for this message")
-
-
-class ChatMessageOut(BaseModel):
-    """Chat Message output schema"""
-    id: uuid.UUID
+    """Create schema for chat message"""
     interview_id: uuid.UUID
-    role: str
-    content: str
+    user_id: uuid.UUID
+    tokens_used: int = 0
+    chat_session_id: Optional[uuid.UUID] = None
+
+
+class ChatMessageOut(ChatMessageBase):
+    """Output schema for chat message"""
+    id: uuid.UUID
     created_at: datetime
-    tokens_used: Optional[int] = None
-    
+    chat_session_id: Optional[uuid.UUID] = None
+
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 
 class ChatRequest(BaseModel):
-    """Chat request schema"""
-    message: str = Field(..., description="User message to send")
+    """Schema for chat request"""
+    message: str
+    chat_session_id: Optional[uuid.UUID] = None
 
 
 class ChatResponse(BaseModel):
-    """Chat response schema"""
+    """Schema for chat response"""
     user_message: ChatMessageOut
     assistant_message: ChatMessageOut
     remaining_tokens: int
+    chat_session_id: Optional[uuid.UUID] = None
+
+
+class ChatSessionBase(BaseModel):
+    """Base schema for chat session"""
+    title: str = "New Chat"
+
+
+class ChatSessionCreate(ChatSessionBase):
+    """Create schema for chat session"""
+    pass
+
+
+class ChatSessionUpdate(BaseModel):
+    """Update schema for chat session"""
+    title: str
+
+
+class ChatSessionOut(ChatSessionBase):
+    """Output schema for chat session"""
+    id: uuid.UUID
+    interview_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
 
 
 class TranscriptMatch(BaseModel):

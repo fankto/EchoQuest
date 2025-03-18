@@ -1,6 +1,7 @@
 from typing import Dict, List
 import json
 import asyncio
+import uuid
 
 import openai
 from loguru import logger
@@ -32,6 +33,7 @@ class ChatService:
         interview: Interview,
         user: User,
         message_text: str,
+        chat_session_id: uuid.UUID = None,
     ) -> ChatMessage:
         """
         Create a new chat message from user and store in the database
@@ -41,6 +43,7 @@ class ChatService:
             interview: Interview object
             user: User sending the message
             message_text: Message content
+            chat_session_id: Optional chat session ID
             
         Returns:
             Created ChatMessage object
@@ -59,6 +62,7 @@ class ChatService:
             role="user",
             content=message_text,
             tokens_used=tokens,
+            chat_session_id=chat_session_id,
         )
         
         message = ChatMessage(
@@ -67,6 +71,7 @@ class ChatService:
             role=message_data.role,
             content=message_data.content,
             tokens_used=message_data.tokens_used,
+            chat_session_id=message_data.chat_session_id,
         )
         
         # Update interview token count
@@ -94,6 +99,7 @@ class ChatService:
         interview: Interview,
         user: User,
         context_messages: List[ChatMessage],
+        chat_session_id: uuid.UUID = None,
     ) -> ChatMessage:
         """
         Generate assistant response using OpenAI API
@@ -103,6 +109,7 @@ class ChatService:
             interview: Interview object
             user: User
             context_messages: Previous messages for context
+            chat_session_id: Optional chat session ID
             
         Returns:
             Assistant response ChatMessage object
@@ -118,6 +125,7 @@ class ChatService:
                     role="assistant",
                     content=content,
                     tokens_used=0,  # No tokens used for mock response
+                    chat_session_id=chat_session_id,
                 )
                 db.add(message)
                 await db.flush()
@@ -138,8 +146,11 @@ class ChatService:
             if max_tokens < 100:
                 raise InsufficientCreditsError("Not enough chat tokens remaining for response")
             
+            # Initialize OpenAI client
+            client = openai.OpenAI(api_key=openai.api_key)
+            
             # Call OpenAI API
-            response = openai.chat.completions.create(
+            response = client.chat.completions.create(
                 model=settings.OPENAI_CHAT_MODEL,
                 messages=messages,
                 max_tokens=max_tokens,
@@ -160,6 +171,7 @@ class ChatService:
                 role="assistant",
                 content=content,
                 tokens_used=total_tokens,
+                chat_session_id=chat_session_id,
             )
             
             # Update interview token count
@@ -282,6 +294,7 @@ TRANSCRIPT CONTEXT:
         interview: Interview,
         user: User,
         context_messages: List[ChatMessage],
+        chat_session_id: uuid.UUID = None,
     ):
         """
         Generate streaming assistant response using OpenAI API
@@ -291,6 +304,7 @@ TRANSCRIPT CONTEXT:
             interview: Interview object
             user: User
             context_messages: Previous messages for context
+            chat_session_id: Optional chat session ID
             
         Yields:
             Streaming response chunks
@@ -318,13 +332,14 @@ TRANSCRIPT CONTEXT:
                     role="assistant",
                     content=content,
                     tokens_used=0,  # No tokens used for mock response
+                    chat_session_id=chat_session_id,
                 )
                 db.add(message)
                 await db.flush()
                 await db.commit()
                 
                 # Send completion signal
-                yield f"data: {json.dumps({'type': 'done', 'remaining_tokens': interview.remaining_chat_tokens})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'remaining_tokens': interview.remaining_chat_tokens, 'chat_session_id': str(chat_session_id) if chat_session_id else None})}\n\n"
                 return
             
             # Get transcript chunks based on recent messages
@@ -347,11 +362,14 @@ TRANSCRIPT CONTEXT:
             if user_message:
                 yield f"data: {json.dumps({'type': 'user_message', 'content': user_message.content})}\n\n"
             
+            # Initialize client with API key
+            client = openai.OpenAI(api_key=openai.api_key)
+            
             # Stream response from OpenAI
             full_content = ""
             
             # Call OpenAI API with stream=True
-            stream = openai.chat.completions.create(
+            stream = client.chat.completions.create(
                 model=settings.OPENAI_CHAT_MODEL,
                 messages=messages,
                 max_tokens=max_tokens,
@@ -359,18 +377,17 @@ TRANSCRIPT CONTEXT:
                 stream=True,
             )
             
-            # Process each chunk as it comes in
             for chunk in stream:
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
+                # Check if the chunk has content
+                if hasattr(chunk.choices[0].delta, 'content') and chunk.choices[0].delta.content is not None:
+                    content_chunk = chunk.choices[0].delta.content
+                    full_content += content_chunk
                     
-                    # Check if delta has content (might be None in some chunks)
-                    if delta.content is not None:
-                        content_chunk = delta.content
-                        full_content += content_chunk
-                        
-                        # Send each token to the client
-                        yield f"data: {json.dumps({'type': 'token', 'content': content_chunk})}\n\n"
+                    # Send each token to the client
+                    yield f"data: {json.dumps({'type': 'token', 'content': content_chunk})}\n\n"
+                
+                # Small delay to prevent overwhelming the client
+                await asyncio.sleep(0)
             
             # Count output tokens
             output_tokens = token_service.count_tokens(full_content)
@@ -383,6 +400,7 @@ TRANSCRIPT CONTEXT:
                 role="assistant",
                 content=full_content,
                 tokens_used=total_tokens,
+                chat_session_id=chat_session_id,
             )
             
             # Update interview token count
@@ -405,7 +423,7 @@ TRANSCRIPT CONTEXT:
             await db.commit()
             
             # Send completion signal with remaining tokens
-            yield f"data: {json.dumps({'type': 'done', 'remaining_tokens': interview.remaining_chat_tokens})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'remaining_tokens': interview.remaining_chat_tokens, 'chat_session_id': str(chat_session_id) if chat_session_id else None})}\n\n"
             
         except Exception as e:
             logger.error(f"Error in streaming assistant response: {e}")
