@@ -229,8 +229,8 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
               // Append token to the streaming message content
               completeContent += eventData.content
               
-              // Only update if content has actually changed and component is mounted
-              if (completeContent !== contentRef.current && isMountedRef.current) {
+              // Only update if component is mounted
+              if (isMountedRef.current) {
                 contentRef.current = completeContent
                 
                 // Create a new message object to avoid reference issues
@@ -274,7 +274,7 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
               throw new Error(eventData.content || 'Error in stream')
             }
           } catch (err) {
-            console.error('Error parsing stream data:', err)
+            console.error('Error parsing stream data:', err, line)
           }
         }
       }

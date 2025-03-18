@@ -359,13 +359,18 @@ TRANSCRIPT CONTEXT:
                 stream=True,
             )
             
+            # Process each chunk as it comes in
             for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    content_chunk = chunk.choices[0].delta.content
-                    full_content += content_chunk
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
                     
-                    # Send each token to the client
-                    yield f"data: {json.dumps({'type': 'token', 'content': content_chunk})}\n\n"
+                    # Check if delta has content (might be None in some chunks)
+                    if delta.content is not None:
+                        content_chunk = delta.content
+                        full_content += content_chunk
+                        
+                        # Send each token to the client
+                        yield f"data: {json.dumps({'type': 'token', 'content': content_chunk})}\n\n"
             
             # Count output tokens
             output_tokens = token_service.count_tokens(full_content)
