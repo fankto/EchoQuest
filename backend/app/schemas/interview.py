@@ -132,3 +132,13 @@ class InterviewTaskResponse(BaseModel):
     """Response for interview processing tasks"""
     status: str
     message: str
+
+
+class TranscriptUpdateRequest(BaseModel):
+    """Request schema for updating transcript text"""
+    transcription: str
+
+
+class TranscriptSegmentsUpdateRequest(BaseModel):
+    """Request schema for updating transcript segments"""
+    segments: List[TranscriptSegment]

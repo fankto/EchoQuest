@@ -21,10 +21,13 @@ from app.schemas.interview import (
     InterviewPatch,
     InterviewTaskResponse,
     InterviewDetailOut,
+    TranscriptUpdateRequest,
+    TranscriptSegmentsUpdateRequest,
 )
 from app.services.file_service import file_service
 from app.services.transcription_service import transcription_service
 from sqlalchemy import delete
+from loguru import logger
 
 router = APIRouter()
 
@@ -417,3 +420,128 @@ async def get_audio_url(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="No audio files available",
     )
+
+
+@router.put("/{interview_id}/update-transcription", response_model=InterviewOut)
+async def update_transcription(
+    interview_id: uuid.UUID,
+    transcription_update: TranscriptUpdateRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Update transcription text for an interview.
+    """
+    interview = await interview_crud.get(db, id=interview_id)
+    if not interview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found",
+        )
+    
+    # Check ownership
+    if interview.owner_id != current_user.id:
+        # TODO: Add organization-based permissions
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    
+    # Check if the interview has been transcribed
+    if interview.status != InterviewStatus.TRANSCRIBED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Interview must be transcribed first",
+        )
+    
+    # Update transcription
+    interview.transcription = transcription_update.transcription
+    await db.commit()
+    await db.refresh(interview)
+    
+    return interview
+
+
+@router.put("/{interview_id}/update-segments", response_model=InterviewOut)
+async def update_segments(
+    interview_id: uuid.UUID,
+    segments_update: TranscriptSegmentsUpdateRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Update transcript segments for an interview.
+    """
+    interview = await interview_crud.get(db, id=interview_id)
+    if not interview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found",
+        )
+    
+    # Check ownership
+    if interview.owner_id != current_user.id:
+        # TODO: Add organization-based permissions
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    
+    # Check if the interview has been transcribed
+    if interview.status != InterviewStatus.TRANSCRIBED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Interview must be transcribed first",
+        )
+    
+    # Update segments
+    interview.transcript_segments = segments_update.segments
+    await db.commit()
+    await db.refresh(interview)
+    
+    return interview
+
+
+@router.post("/{interview_id}/attach-questionnaire", response_model=InterviewOut)
+async def attach_questionnaire(
+    interview_id: uuid.UUID,
+    questionnaire_id: uuid.UUID = Form(...),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Attach a questionnaire to an existing interview.
+    This can be done even after transcription, allowing the user to add a questionnaire later.
+    """
+    interview = await interview_crud.get(db, id=interview_id)
+    if not interview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Interview not found",
+        )
+    
+    # Check ownership
+    if interview.owner_id != current_user.id:
+        # TODO: Add organization-based permissions
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    
+    # Check if the interview has been transcribed
+    if interview.status != InterviewStatus.TRANSCRIBED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Interview must be transcribed first",
+        )
+    
+    # Update questionnaire_id
+    interview.questionnaire_id = questionnaire_id
+    
+    # Reset any previously generated answers since we're changing the questionnaire
+    interview.generated_answers = None
+    
+    await db.commit()
+    await db.refresh(interview)
+    
+    return interview

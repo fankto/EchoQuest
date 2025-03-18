@@ -8,12 +8,27 @@ import { toast } from 'sonner'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { ChatInterface } from '@/components/interview/chat-interface'
 import { TranscriptViewer } from '@/components/interview/transcript-viewer'
-import { ChevronLeft, PlayCircle, Cog, MessageSquare, FileText } from 'lucide-react'
+import { ChevronLeft, PlayCircle, Cog, MessageSquare, FileText, ListIcon } from 'lucide-react'
 import { Interview, InterviewStatus } from '@/types/interview'
 import Link from 'next/link'
 import api from '@/lib/api-client'
 import { AudioPlayer } from '@/components/interview/audio-player'
 import type { TranscriptSegment } from '@/components/interview/transcript-viewer'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export default function InterviewDetailPage() {
   const { id } = useParams()
@@ -26,6 +41,10 @@ export default function InterviewDetailPage() {
   const [audioUrl, setAudioUrl] = useState<string | undefined>(undefined)
   const [currentTime, setCurrentTime] = useState(0)
   const router = useRouter()
+  const [questionnaires, setQuestionnaires] = useState<Array<{id: string, title: string}>>([])
+  const [selectedQuestionnaireId, setSelectedQuestionnaireId] = useState<string>("")
+  const [isQuestionnaireDialogOpen, setIsQuestionnaireDialogOpen] = useState(false)
+  const [isAttachingQuestionnaire, setIsAttachingQuestionnaire] = useState(false)
 
   const fetchInterview = useCallback(async () => {
     try {
@@ -68,9 +87,21 @@ export default function InterviewDetailPage() {
     }
   }, [id])
 
+  const fetchQuestionnaires = useCallback(async () => {
+    try {
+      const data = await api.get('/api/questionnaires')
+      if (data && data.items) {
+        setQuestionnaires(data.items)
+      }
+    } catch (error) {
+      console.error('Failed to fetch questionnaires:', error)
+    }
+  }, [])
+
   useEffect(() => {
     fetchInterview()
-  }, [fetchInterview])
+    fetchQuestionnaires()
+  }, [id, fetchInterview, fetchQuestionnaires])
 
   const pollProcessingStatus = useCallback(() => {
     const interval = setInterval(async () => {
@@ -143,6 +174,32 @@ export default function InterviewDetailPage() {
       fetchInterview()
     } catch (error) {
       toast.error('Failed to start answer generation')
+    }
+  }
+
+  const attachQuestionnaire = async () => {
+    if (!selectedQuestionnaireId) {
+      toast.error('Please select a questionnaire')
+      return
+    }
+
+    try {
+      setIsAttachingQuestionnaire(true)
+      const formData = new FormData()
+      formData.append('questionnaire_id', selectedQuestionnaireId)
+      
+      await api.upload(`/api/interviews/${id}/attach-questionnaire`, formData)
+      toast.success('Questionnaire attached successfully')
+      
+      // Refresh interview data
+      await fetchInterview()
+      
+      // Close dialog
+      setIsQuestionnaireDialogOpen(false)
+    } catch (error) {
+      toast.error('Failed to attach questionnaire')
+    } finally {
+      setIsAttachingQuestionnaire(false)
     }
   }
 
@@ -246,7 +303,7 @@ export default function InterviewDetailPage() {
                   </>
                 ) : (
                   <>
-                    <Cog className="mr-2 h-4 w-4" />
+                    <PlayCircle className="mr-2 h-4 w-4" />
                     Process Audio
                   </>
                 )}
@@ -272,12 +329,69 @@ export default function InterviewDetailPage() {
               </Button>
             )}
 
-            {interview.status === InterviewStatus.TRANSCRIBED && !interview.generated_answers && (
-              <Button 
-                onClick={generateAnswers}
-              >
-                Generate Answers
-              </Button>
+            {interview.status === InterviewStatus.TRANSCRIBED && (
+              <>
+                <Dialog open={isQuestionnaireDialogOpen} onOpenChange={setIsQuestionnaireDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <ListIcon className="mr-2 h-4 w-4" />
+                      {interview.questionnaire ? 'Change Questionnaire' : 'Add Questionnaire'}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{interview.questionnaire ? 'Change Questionnaire' : 'Add Questionnaire'}</DialogTitle>
+                      <DialogDescription>
+                        {interview.questionnaire 
+                          ? 'Select a different questionnaire for this interview' 
+                          : 'Select a questionnaire to analyze this interview'}
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Select 
+                          onValueChange={(value) => setSelectedQuestionnaireId(value)}
+                          defaultValue={interview.questionnaire_id || ""}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a questionnaire" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {questionnaires.map((q) => (
+                              <SelectItem key={q.id} value={q.id}>{q.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex justify-end">
+                        <Button 
+                          onClick={attachQuestionnaire} 
+                          disabled={isAttachingQuestionnaire}
+                        >
+                          {isAttachingQuestionnaire ? (
+                            <>
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                              Saving...
+                            </>
+                          ) : (
+                            'Save'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
+                {interview.questionnaire && !interview.generated_answers && (
+                  <Button 
+                    onClick={generateAnswers}
+                  >
+                    Generate Answers
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -335,9 +449,11 @@ export default function InterviewDetailPage() {
                 ) : (
                   <div className="border rounded-md p-4 h-[calc(100vh-280px)] flex flex-col items-center justify-center">
                     <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold">No Answers Generated Yet</h3>
+                    <h3 className="text-lg font-semibold">{interview.questionnaire ? 'No Answers Generated Yet' : 'No Questionnaire Selected'}</h3>
                     <p className="text-center text-muted-foreground mt-2 max-w-md">
-                      Once you have a transcript, you can generate answers to questionnaire questions.
+                      {interview.questionnaire 
+                        ? 'Click "Generate Answers" to analyze the transcript with your questionnaire.'
+                        : 'Add a questionnaire to generate answers based on the transcript.'}
                     </p>
                   </div>
                 )}

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Pencil, Save, X, Search, PlayCircle, Check } from 'lucide-react'
+import { Pencil, Save, X, Search, PlayCircle, Check, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { secondsToTimestamp } from '@/lib/format'
 import api from '@/lib/api-client'
@@ -60,6 +60,11 @@ export function TranscriptViewer({
   const [editedSegments, setEditedSegments] = useState<TranscriptSegment[]>(segments)
   const [editedSegmentText, setEditedSegmentText] = useState('')
   const [editedSegmentSpeaker, setEditedSegmentSpeaker] = useState('')
+  // New state for time editing
+  const [editedSegmentStartTime, setEditedSegmentStartTime] = useState(0)
+  const [editedSegmentEndTime, setEditedSegmentEndTime] = useState(0)
+  // Search functionality
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
 
   useEffect(() => {
     // Find the current segment based on audio playback time
@@ -206,34 +211,64 @@ export function TranscriptViewer({
     }
   }
 
-  // New function to handle segment edit start
+  // Modified function to handle segment edit start
   const handleEditSegment = (segment: TranscriptSegment, index: number, e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation() // Prevent audio playback
     setEditingSegmentIndex(index)
     setEditedSegmentText(segment.text)
     setEditedSegmentSpeaker(segment.speaker)
+    setEditedSegmentStartTime(segment.start_time)
+    setEditedSegmentEndTime(segment.end_time)
   }
 
-  // Add keyboard event handler for accessibility
+  // Modified keyboard event handler for accessibility
   const handleEditSegmentKeyPress = (segment: TranscriptSegment, index: number, e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       setEditingSegmentIndex(index)
       setEditedSegmentText(segment.text)
       setEditedSegmentSpeaker(segment.speaker)
+      setEditedSegmentStartTime(segment.start_time)
+      setEditedSegmentEndTime(segment.end_time)
     }
   }
 
-  // New function to save segment edit
+  // Modified function to save segment edit with time changes
   const handleSaveSegmentEdit = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation() // Prevent audio playback
     
     if (editingSegmentIndex !== null) {
+      // Validate time inputs
+      if (editedSegmentStartTime >= editedSegmentEndTime) {
+        toast.error("Start time must be less than end time")
+        return
+      }
+      
+      // Check for overlap with previous segment
+      if (editingSegmentIndex > 0) {
+        const prevSegment = editedSegments[editingSegmentIndex - 1]
+        if (editedSegmentStartTime < prevSegment.end_time) {
+          toast.error("Start time overlaps with previous segment")
+          return
+        }
+      }
+      
+      // Check for overlap with next segment
+      if (editingSegmentIndex < editedSegments.length - 1) {
+        const nextSegment = editedSegments[editingSegmentIndex + 1]
+        if (editedSegmentEndTime > nextSegment.start_time) {
+          toast.error("End time overlaps with next segment")
+          return
+        }
+      }
+      
       const updatedSegments = [...editedSegments]
       updatedSegments[editingSegmentIndex] = {
         ...updatedSegments[editingSegmentIndex],
         text: editedSegmentText,
-        speaker: editedSegmentSpeaker
+        speaker: editedSegmentSpeaker,
+        start_time: editedSegmentStartTime,
+        end_time: editedSegmentEndTime
       }
       
       setEditedSegments(updatedSegments)
@@ -244,17 +279,43 @@ export function TranscriptViewer({
     }
   }
 
-  // Add keyboard event handler for save
+  // Modified keyboard event handler for save with time changes
   const handleSaveSegmentEditKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       
       if (editingSegmentIndex !== null) {
+        // Validate time inputs
+        if (editedSegmentStartTime >= editedSegmentEndTime) {
+          toast.error("Start time must be less than end time")
+          return
+        }
+        
+        // Check for overlap with previous segment
+        if (editingSegmentIndex > 0) {
+          const prevSegment = editedSegments[editingSegmentIndex - 1]
+          if (editedSegmentStartTime < prevSegment.end_time) {
+            toast.error("Start time overlaps with previous segment")
+            return
+          }
+        }
+        
+        // Check for overlap with next segment
+        if (editingSegmentIndex < editedSegments.length - 1) {
+          const nextSegment = editedSegments[editingSegmentIndex + 1]
+          if (editedSegmentEndTime > nextSegment.start_time) {
+            toast.error("End time overlaps with next segment")
+            return
+          }
+        }
+        
         const updatedSegments = [...editedSegments]
         updatedSegments[editingSegmentIndex] = {
           ...updatedSegments[editingSegmentIndex],
           text: editedSegmentText,
-          speaker: editedSegmentSpeaker
+          speaker: editedSegmentSpeaker,
+          start_time: editedSegmentStartTime,
+          end_time: editedSegmentEndTime
         }
         
         setEditedSegments(updatedSegments)
@@ -381,25 +442,56 @@ export function TranscriptViewer({
     }
   };
 
+  // Add function to convert timestamp to seconds
+  const timestampToSeconds = (timestamp: string): number => {
+    const parts = timestamp.split(':')
+    if (parts.length === 2) {
+      const minutes = Number.parseInt(parts[0], 10)
+      const seconds = Number.parseFloat(parts[1])
+      return minutes * 60 + seconds
+    }
+    return 0
+  }
+
+  // Add function to handle timestamp input changes
+  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const timestamp = e.target.value
+    if (/^\d{1,2}:\d{1,2}(\.\d{1,3})?$/.test(timestamp)) {
+      setEditedSegmentStartTime(timestampToSeconds(timestamp))
+    }
+  }
+
+  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const timestamp = e.target.value
+    if (/^\d{1,2}:\d{1,2}(\.\d{1,3})?$/.test(timestamp)) {
+      setEditedSegmentEndTime(timestampToSeconds(timestamp))
+    }
+  }
+
   return (
-    <Card className={cn("flex flex-col h-full", className)}>
-      <CardHeader className="px-4 py-3 flex-col sm:flex-row gap-1 space-y-0 justify-between border-b">
-        <CardTitle className="text-lg">Interview Transcript</CardTitle>
-        <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <Button size="sm" variant="outline" onClick={handleCancel}>
-                <X className="h-4 w-4 mr-1" /> Cancel
-              </Button>
-              <Button size="sm" onClick={handleSave}>
-                <Save className="h-4 w-4 mr-1" /> Save
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
-              <Pencil className="h-4 w-4 mr-1" /> Edit
-            </Button>
-          )}
+    <Card className={cn("h-full flex flex-col relative overflow-hidden", className)}>
+      <CardHeader className="px-6 pb-3 pt-4 flex-none">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            <span>Transcript</span>
+          </CardTitle>
+          
+          {/* Search input */}
+          <div className="relative w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <Input
+              type="text"
+              placeholder="Search transcript..."
+              value={localSearchQuery}
+              onChange={(e) => setLocalSearchQuery(e.target.value)}
+              className="pl-10 h-9 focus:outline-none"
+            />
+          </div>
+          
+          {/* Remove global edit button - it will be moved to transcript tab */}
         </div>
       </CardHeader>
       
@@ -462,9 +554,23 @@ export function TranscriptViewer({
                               placeholder="Speaker"
                             />
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
-                                {secondsToTimestamp(segment.start_time)} - {secondsToTimestamp(segment.end_time)}
-                              </span>
+                              <div className="flex gap-1 items-center">
+                                <Input
+                                  value={secondsToTimestamp(editedSegmentStartTime)}
+                                  onChange={handleStartTimeChange}
+                                  className="w-16 text-xs"
+                                  placeholder="Start"
+                                  title="Start time (MM:SS)"
+                                />
+                                <span className="text-xs">-</span>
+                                <Input
+                                  value={secondsToTimestamp(editedSegmentEndTime)}
+                                  onChange={handleEndTimeChange}
+                                  className="w-16 text-xs"
+                                  placeholder="End"
+                                  title="End time (MM:SS)"
+                                />
+                              </div>
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
@@ -564,48 +670,49 @@ export function TranscriptViewer({
             </ScrollArea>
           </TabsContent>
           
-          <TabsContent value="transcript" className="flex-1 overflow-hidden m-0 data-[state=active]:h-full">
-            {isEditing ? (
-              <textarea
-                value={editedText}
-                onChange={(e) => setEditedText(e.target.value)}
-                className="w-full h-full p-4 resize-none focus:outline-none border-0"
-                aria-label="Edit transcript"
-                placeholder="Enter transcript text"
-              />
-            ) : (
-              <ScrollArea className="h-full p-4">
-                {transcriptText ? (
-                  <div 
-                    className="whitespace-pre-wrap"
+          <TabsContent value="transcript" className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col">
+            <div className="p-4 pb-2 flex justify-end border-b">
+              {isEditing ? (
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSave}
                   >
-                    {searchQuery ? (
-                      <>
-                        {transcriptText.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
-                          part.toLowerCase() === searchQuery.toLowerCase() 
-                            ? <mark key={`transcript-mark-${i}-${part.substring(0, 10)}`}>{part}</mark> 
-                            : part
-                        )}
-                      </>
-                    ) : (
-                      transcriptText
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                      <Search className="h-10 w-10 text-muted-foreground" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold">
-                      No transcript available
-                    </h3>
-                    <p className="mt-2 text-center text-sm text-muted-foreground max-w-sm">
-                      Process and transcribe your interview audio to view the transcript.
-                    </p>
-                  </div>
-                )}
-              </ScrollArea>
-            )}
+                    <Save className="h-4 w-4 mr-1" /> Save
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleCancel}
+                  >
+                    <X className="h-4 w-4 mr-1" /> Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" /> Edit Transcript
+                </Button>
+              )}
+            </div>
+            
+            <ScrollArea className="flex-1 p-4">
+              {isEditing ? (
+                <Textarea
+                  value={editedText}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditedText(e.target.value)}
+                  className="min-h-[calc(100vh-300px)] font-mono text-sm whitespace-pre-line p-4"
+                />
+              ) : (
+                <div className="whitespace-pre-line font-mono text-sm">
+                  {highlightSearchQuery(transcriptText)}
+                </div>
+              )}
+            </ScrollArea>
           </TabsContent>
         </Tabs>
       </CardContent>
