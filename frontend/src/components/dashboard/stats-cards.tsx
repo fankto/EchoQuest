@@ -8,8 +8,7 @@ type Stats = {
   totalInterviews: number
   processedInterviews: number
   totalQuestionnaires: number
-  availableCredits: number
-  chatTokens: number
+  interviewsThisMonth: number
 }
 
 type UserResponse = {
@@ -24,6 +23,7 @@ type UserResponse = {
 type Interview = {
   id: string
   status: string
+  created_at: string
   // Add other interview properties as needed
 }
 
@@ -53,8 +53,7 @@ export function StatsCards() {
     totalInterviews: 0,
     processedInterviews: 0,
     totalQuestionnaires: 0,
-    availableCredits: 0,
-    chatTokens: 0,
+    interviewsThisMonth: 0
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,7 +76,14 @@ export function StatsCards() {
         const userResponse = await api.get<UserResponse>('/api/auth/me')
         const user = userResponse
 
-        // Calculate stats
+        // Calculate interviews this month
+        const now = new Date()
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const interviewsThisMonth = interviews.filter(interview => 
+          new Date(interview.created_at) >= firstDayOfMonth
+        ).length
+
+        // Calculate processed interviews
         const processedInterviews = interviews.filter(
           (interview) => interview.status === 'processed'
         ).length
@@ -86,8 +92,7 @@ export function StatsCards() {
           totalInterviews: interviews.length,
           processedInterviews,
           totalQuestionnaires: questionnaires.length,
-          availableCredits: user.available_interview_credits,
-          chatTokens: user.available_chat_tokens,
+          interviewsThisMonth
         })
       } catch (err) {
         console.error('Failed to fetch stats:', err)
@@ -103,7 +108,7 @@ export function StatsCards() {
   if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {['interviews', 'processed', 'questionnaires', 'credits'].map((type) => (
+        {['interviews', 'processed', 'questionnaires', 'monthly'].map((type) => (
           <Card key={`loading-${type}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Loading...</CardTitle>
@@ -160,10 +165,10 @@ export function StatsCards() {
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Available Credits</CardTitle>
+          <CardTitle className="text-sm font-medium">Interviews This Month</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.availableCredits}</div>
+          <div className="text-2xl font-bold">{stats.interviewsThisMonth}</div>
         </CardContent>
       </Card>
     </div>

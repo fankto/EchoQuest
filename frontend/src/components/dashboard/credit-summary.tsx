@@ -15,23 +15,17 @@ type UserResponse = {
   role: string
   available_interview_credits: number
   available_chat_tokens: number
-  interview_credit_limit: number
-  chat_token_limit: number
 }
 
 type CreditData = {
   available_interview_credits: number
   available_chat_tokens: number
-  interview_credit_limit: number
-  chat_token_limit: number
 }
 
 export function CreditSummary() {
   const [credits, setCredits] = useState<CreditData>({
     available_interview_credits: 0,
-    available_chat_tokens: 0,
-    interview_credit_limit: 0,
-    chat_token_limit: 0
+    available_chat_tokens: 0
   })
   const [isLoading, setIsLoading] = useState(true)
 
@@ -42,9 +36,7 @@ export function CreditSummary() {
         const response = await api.get<UserResponse>('/api/auth/me')
         setCredits({
           available_interview_credits: response.available_interview_credits,
-          available_chat_tokens: response.available_chat_tokens,
-          interview_credit_limit: response.interview_credit_limit || 100, // Fallback to 100 if not set
-          chat_token_limit: response.chat_token_limit || 1000000 // Fallback to 1M if not set
+          available_chat_tokens: response.available_chat_tokens
         })
       } catch (error) {
         console.error('Failed to fetch credits:', error)
@@ -65,10 +57,6 @@ export function CreditSummary() {
     )
   }
 
-  // Calculate percentages based on actual limits
-  const interviewCreditPercentage = (credits.available_interview_credits / credits.interview_credit_limit) * 100
-  const chatTokenPercentage = (credits.available_chat_tokens / credits.chat_token_limit) * 100
-
   // Format chat tokens for display (in K)
   const formatTokens = (tokens: number) => {
     return `${(tokens / 1000).toFixed(0)}K`
@@ -80,10 +68,10 @@ export function CreditSummary() {
         <div className="flex justify-between text-sm">
           <span>Interview Credits</span>
           <span className="font-medium">
-            {credits.available_interview_credits} / {credits.interview_credit_limit}
+            {credits.available_interview_credits} available
           </span>
         </div>
-        <Progress value={interviewCreditPercentage} className="h-2" />
+        <Progress value={100} className="h-2" />
         <p className="text-xs text-muted-foreground">
           Used for processing new interviews
         </p>
@@ -93,10 +81,10 @@ export function CreditSummary() {
         <div className="flex justify-between text-sm">
           <span>Chat Tokens</span>
           <span className="font-medium">
-            {formatTokens(credits.available_chat_tokens)} / {formatTokens(credits.chat_token_limit)}
+            {formatTokens(credits.available_chat_tokens)} available
           </span>
         </div>
-        <Progress value={chatTokenPercentage} className="h-2" />
+        <Progress value={100} className="h-2" />
         <p className="text-xs text-muted-foreground">
           Used for interview chat interactions
         </p>
