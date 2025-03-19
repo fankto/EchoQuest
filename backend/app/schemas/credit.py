@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Optional
 
 
 class CreditPackage(BaseModel):
@@ -40,3 +41,14 @@ class CreditSummary(BaseModel):
     available_chat_tokens: int
     interview_credits_used: int
     chat_tokens_used: int
+
+
+class TransactionResponse(BaseModel):
+    """Transaction response schema"""
+    id: str = Field(..., description="Transaction ID")
+    transaction_type: str = Field(..., description="Type of transaction")
+    amount: int = Field(..., description="Amount of credits or tokens")
+    price: Optional[float] = Field(None, description="Price paid (if a purchase)")
+    reference: Optional[str] = Field(None, description="Reference number or identifier")
+    created_at: str = Field(..., description="Transaction timestamp")
+    interview_id: Optional[str] = Field(None, description="Associated interview ID (if any)")

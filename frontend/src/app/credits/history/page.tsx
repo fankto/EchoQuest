@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ import {
   PaginationNext, 
   PaginationPrevious 
 } from '@/components/ui/pagination'
-import { Loader2, ChevronLeft, ArrowUp, ArrowDown } from 'lucide-react'
+import { Loader2, ChevronLeft, ArrowUp, ArrowDown, ChevronsUpDown, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/format'
 import api from '@/lib/api-client'
@@ -37,41 +37,72 @@ type Transaction = {
   id: string
   transaction_type: string
   amount: number
-  price?: number
-  reference?: string
+  price: number | null
+  reference: string | null
   created_at: string
+  interview_id: string | null
 }
+
+type TransactionType = 'all' | 'interview_credit_purchase' | 'chat_token_purchase' | 'interview_credit_usage' | 'chat_token_usage'
 
 export default function TransactionHistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [filter, setFilter] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [transactionType, setTransactionType] = useState<TransactionType>('all')
+  const [dateRange, setDateRange] = useState<'all' | 'week' | 'month' | 'year'>('all')
+
+  const fetchTransactions = useCallback(async (resetPage = false) => {
+    if (resetPage) {
+      setPage(1)
+      setTransactions([])
+    }
+    
+    if (!hasMore && !resetPage) return
+    
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const response = await api.get<Transaction[]>('/api/credits/transactions', {
+        params: {
+          page,
+          limit: 10,
+          transaction_type: transactionType === 'all' ? undefined : transactionType,
+          date_range: dateRange === 'all' ? undefined : dateRange,
+        }
+      })
+      
+      setTransactions(prev => resetPage ? response : [...prev, ...response])
+      setHasMore(response.length === 10)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load transaction history'
+      setError(errorMessage)
+      console.error('Failed to fetch transactions:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [page, transactionType, dateRange, hasMore])
 
   useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        setIsLoading(true)
-        
-        let url = `/api/credits/transactions?page=${page}&limit=10`
-        if (filter) {
-          url += `&type=${filter}`
-        }
-        
-        const response = await api.get(url)
-        setTransactions(response.items || [])
-        setTotalPages(response.pages || 1)
-      } catch (error) {
-        console.error('Failed to fetch transactions:', error)
-        toast.error('Failed to load transaction history')
-      } finally {
-        setIsLoading(false)
-      }
-    }
+    fetchTransactions(true)
+  }, [fetchTransactions])
 
-    fetchTransactions()
-  }, [page, filter])
+  const handleLoadMore = () => {
+    setPage(prev => prev + 1)
+  }
+
+  const handleFilterChange = (type: TransactionType) => {
+    setTransactionType(type)
+    setHasMore(true)
+  }
+
+  const handleDateRangeChange = (range: 'all' | 'week' | 'month' | 'year') => {
+    setDateRange(range)
+    setHasMore(true)
+  }
 
   const formatTransactionType = (type: string) => {
     switch (type) {
@@ -187,94 +218,110 @@ export default function TransactionHistoryPage() {
           </div>
         </div>
         
-        <Card>
-          <CardHeader className="space-y-0 pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle>All Transactions</CardTitle>
-              <Select 
-                onValueChange={(value) => setFilter(value === 'all' ? null : value)}
-                defaultValue="all"
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All transactions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All transactions</SelectItem>
-                  <SelectItem value="interview_credit_purchase">Credit Purchases</SelectItem>
-                  <SelectItem value="chat_token_purchase">Token Purchases</SelectItem>
-                  <SelectItem value="interview_credit_usage">Credit Usage</SelectItem>
-                  <SelectItem value="chat_token_usage">Token Usage</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <CardDescription>
-              {filter ? `Showing ${formatTransactionType(filter).toLowerCase()}` : 'Showing all transaction types'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : transactions.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No transactions found</p>
-              </div>
+        <div className="flex gap-4">
+          <Select value={transactionType} onValueChange={handleFilterChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Transaction Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Transactions</SelectItem>
+              <SelectItem value="interview_credit_purchase">Credit Purchases</SelectItem>
+              <SelectItem value="chat_token_purchase">Token Purchases</SelectItem>
+              <SelectItem value="interview_credit_usage">Credit Usage</SelectItem>
+              <SelectItem value="chat_token_usage">Token Usage</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={dateRange} onValueChange={handleDateRangeChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Date Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="week">Last Week</SelectItem>
+              <SelectItem value="month">Last Month</SelectItem>
+              <SelectItem value="year">Last Year</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchTransactions(true)}
+            disabled={loading}
+          >
+            {loading ? (
+              <ChevronsUpDown className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction Type</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell className="font-medium">
-                          {formatTransactionType(transaction.transaction_type)}
-                        </TableCell>
-                        <TableCell>{formatDate(transaction.created_at)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            {isExpense(transaction.transaction_type) ? (
-                              <ArrowDown className="mr-1 h-4 w-4 text-red-500" />
-                            ) : (
-                              <ArrowUp className="mr-1 h-4 w-4 text-green-500" />
-                            )}
-                            <span className={isExpense(transaction.transaction_type) ? 'text-red-500' : 'text-green-500'}>
-                              {isExpense(transaction.transaction_type) ? '-' : '+'}{transaction.amount.toLocaleString()}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {transaction.price 
-                            ? `$${transaction.price.toFixed(2)}` 
-                            : '-'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                {totalPages > 1 && (
-                  <div className="mt-6">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationPrevious onClick={() => setPage(Math.max(1, page - 1))} />
-                        {getPaginationItems()}
-                        <PaginationNext onClick={() => setPage(Math.min(totalPages, page + 1))} />
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-              </>
+              <HelpCircle className="h-4 w-4 mr-2" />
             )}
-          </CardContent>
-        </Card>
+            Refresh
+          </Button>
+        </div>
+
+        {error ? (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-destructive">{error}</p>
+            </CardContent>
+          </Card>
+        ) : transactions.length > 0 ? (
+          <Card>
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                {transactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                    <div>
+                      <p className="font-medium">
+                        {transaction.transaction_type === 'interview_credit_purchase' ? 'Interview Credits Purchase' :
+                         transaction.transaction_type === 'chat_token_purchase' ? 'Chat Tokens Purchase' :
+                         transaction.transaction_type === 'interview_credit_usage' ? 'Interview Credits Usage' :
+                         'Chat Tokens Usage'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(transaction.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">
+                        {transaction.transaction_type.includes('credit') ? 
+                          `${transaction.amount} credits` : 
+                          `${transaction.amount.toLocaleString()} tokens`}
+                      </p>
+                      {transaction.price && (
+                        <p className="text-sm text-muted-foreground">
+                          ${transaction.price.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="mt-4 text-center">
+                  <Button
+                    variant="outline"
+                    onClick={handleLoadMore}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ChevronsUpDown className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      'Load More'
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">No transactions found</p>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   )

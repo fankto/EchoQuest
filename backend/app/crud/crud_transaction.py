@@ -1,5 +1,6 @@
 from typing import Optional, List
 from uuid import UUID
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,12 +48,22 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         skip: int = 0,
         limit: int = 100,
         transaction_type: Optional[TransactionType] = None,
+        date_range: Optional[str] = None,
     ) -> List[Transaction]:
         """Get user transactions"""
         query = select(Transaction).filter(Transaction.user_id == user_id)
         
         if transaction_type:
             query = query.filter(Transaction.transaction_type == transaction_type)
+        
+        if date_range:
+            now = datetime.utcnow()
+            if date_range == 'week':
+                query = query.filter(Transaction.created_at >= now - timedelta(days=7))
+            elif date_range == 'month':
+                query = query.filter(Transaction.created_at >= now - timedelta(days=30))
+            elif date_range == 'year':
+                query = query.filter(Transaction.created_at >= now - timedelta(days=365))
         
         query = query.order_by(Transaction.created_at.desc()).offset(skip).limit(limit)
         

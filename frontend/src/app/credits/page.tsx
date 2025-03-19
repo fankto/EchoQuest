@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { Check, ChevronsUpDown, HelpCircle, Sparkles, Zap } from 'lucide-react'
+import { Check, ChevronsUpDown, HelpCircle, Sparkles, Zap, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api-client'
 
@@ -28,8 +29,29 @@ type TokenPackage = {
   price: number
 }
 
+type CreditPurchaseResponse = {
+  success: boolean
+  message: string
+  credits_added: number
+  total_credits: number
+  transaction_id: string
+}
+
+type Transaction = {
+  id: string
+  transaction_type: string
+  amount: number
+  price: number | null
+  reference: string | null
+  created_at: string
+  interview_id: string | null
+}
+
 export default function CreditsPage() {
   const [loading, setLoading] = useState<string | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [transactionsError, setTransactionsError] = useState<string | null>(null)
   const [interviewCredits, setInterviewCredits] = useState<CreditPackage[]>([
     {
       id: 'starter',
@@ -84,7 +106,7 @@ export default function CreditsPage() {
   const handleBuyCredits = async (packageId: string) => {
     setLoading(packageId)
     try {
-      const response = await api.post('/api/credits/purchase-credits', {
+      const response = await api.post<CreditPurchaseResponse>('/api/credits/purchase-credits', {
         package_id: packageId,
       })
       
@@ -92,8 +114,9 @@ export default function CreditsPage() {
       
       // In a real app, you would update the user's credit balance here
       
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to purchase credits')
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to purchase credits'
+      toast.error(errorMessage)
     } finally {
       setLoading(null)
     }
@@ -102,7 +125,7 @@ export default function CreditsPage() {
   const handleBuyTokens = async (packageId: string) => {
     setLoading(packageId)
     try {
-      const response = await api.post('/api/credits/purchase-tokens', {
+      const response = await api.post<CreditPurchaseResponse>('/api/credits/purchase-tokens', {
         package_id: packageId,
       })
       
@@ -110,12 +133,37 @@ export default function CreditsPage() {
       
       // In a real app, you would update the user's token balance here
       
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to purchase tokens')
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to purchase tokens'
+      toast.error(errorMessage)
     } finally {
       setLoading(null)
     }
   }
+
+  const fetchTransactions = useCallback(async () => {
+    setTransactionsLoading(true)
+    setTransactionsError(null)
+    try {
+      const response = await api.get<Transaction[]>('/api/credits/transactions', {
+        params: {
+          page: 1,
+          limit: 10
+        }
+      })
+      setTransactions(response)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load transaction history'
+      setTransactionsError(errorMessage)
+      console.error('Failed to fetch transactions:', error)
+    } finally {
+      setTransactionsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTransactions()
+  }, [fetchTransactions])
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -124,6 +172,12 @@ export default function CreditsPage() {
       <main className="flex-1 space-y-4 p-8 pt-6">
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Credits & Tokens</h2>
+          <Link href="/credits/history">
+            <Button variant="outline" size="sm">
+              <History className="h-4 w-4 mr-2" />
+              View History
+            </Button>
+          </Link>
         </div>
         
         <Tabs defaultValue="credits" className="space-y-4">
@@ -335,7 +389,12 @@ export default function CreditsPage() {
   )
 }
 
-function Badge({ variant = "default", className, ...props }) {
+interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: "default" | "secondary" | "destructive" | "outline"
+  className?: string
+}
+
+function Badge({ variant = "default", className = "", ...props }: BadgeProps): JSX.Element {
   return (
     <div
       className={cn(

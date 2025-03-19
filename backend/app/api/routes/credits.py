@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, List
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from app.schemas.credit import (
     CreditPurchase,
     CreditPurchaseResponse,
     TokenPackage,
+    TransactionResponse,
 )
 
 router = APIRouter()
@@ -207,3 +208,40 @@ async def purchase_chat_tokens(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process purchase: {str(e)}",
         )
+
+
+@router.get("/transactions", response_model=List[TransactionResponse])
+async def get_transactions(
+    page: int = 1,
+    limit: int = 10,
+    transaction_type: Optional[str] = None,
+    date_range: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Get user's transaction history.
+    """
+    # Get transactions for the current user
+    transactions = await transaction_crud.get_user_transactions(
+        db,
+        user_id=current_user.id,
+        skip=(page - 1) * limit,
+        limit=limit,
+        transaction_type=TransactionType(transaction_type) if transaction_type else None,
+        date_range=date_range,
+    )
+    
+    # Convert to response format
+    return [
+        TransactionResponse(
+            id=str(t.id),
+            transaction_type=t.transaction_type.value,
+            amount=t.amount,
+            price=t.price,
+            reference=t.reference,
+            created_at=t.created_at.isoformat(),
+            interview_id=str(t.interview_id) if t.interview_id else None,
+        )
+        for t in transactions
+    ]
