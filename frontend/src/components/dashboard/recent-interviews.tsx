@@ -1,56 +1,43 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Icons } from '@/components/ui/icons'
+import api from '@/lib/api-client'
+import { toast } from 'sonner'
+import type { Interview } from '@/types/interview'
 
-// Mock data for recent interviews
-const mockInterviews = [
-  {
-    id: '1',
-    title: 'Interview with John Doe',
-    interviewee_name: 'John Doe',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-    status: 'processed',
-  },
-  {
-    id: '2',
-    title: 'Product Research Interview',
-    interviewee_name: 'Jane Smith',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-    status: 'processed',
-  },
-  {
-    id: '3',
-    title: 'Customer Feedback Session',
-    interviewee_name: 'Robert Johnson',
-    date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 7 days ago
-    status: 'processed',
-  },
-]
+type PaginatedResponse<T> = {
+  items: T[]
+  total: number
+  page: number
+  size: number
+  pages: number
+}
 
 export function RecentInterviews() {
-  const [interviews, setInterviews] = useState(mockInterviews)
-  const [isLoading, setIsLoading] = useState(false)
+  const [interviews, setInterviews] = useState<Interview[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // In a real app, you would fetch interviews from the API
-  // useEffect(() => {
-  //   const fetchInterviews = async () => {
-  //     setIsLoading(true)
-  //     try {
-  //       const response = await api.get('/api/interviews?limit=5')
-  //       setInterviews(response)
-  //     } catch (error) {
-  //       console.error('Failed to fetch interviews:', error)
-  //     } finally {
-  //       setIsLoading(false)
-  //     }
-  //   }
-  //   fetchInterviews()
-  // }, [])
+  useEffect(() => {
+    const fetchInterviews = async () => {
+      try {
+        setIsLoading(true)
+        const response = await api.get<PaginatedResponse<Interview>>('/api/interviews?limit=5')
+        setInterviews(response.items || [])
+      } catch (error) {
+        console.error('Failed to fetch interviews:', error)
+        toast.error('Failed to load recent interviews')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchInterviews()
+  }, [])
 
   if (isLoading) {
     return (
@@ -91,7 +78,7 @@ export function RecentInterviews() {
                     {interview.interviewee_name}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(interview.date, { addSuffix: true })}
+                    {formatDistanceToNow(new Date(interview.date), { addSuffix: true })}
                   </p>
                 </div>
                 <div className="flex items-center">

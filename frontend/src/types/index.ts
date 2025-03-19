@@ -49,8 +49,10 @@ export type Organization = {
 }
 
 export type CreditSummary = {
-  available_interview_credits: number
-  available_chat_tokens: number
-  interview_credits_used: number
-  chat_tokens_used: number
+  data: {
+    available_interview_credits: number
+    available_chat_tokens: number
+    interview_credits_used: number
+    chat_tokens_used: number
+  }
 }

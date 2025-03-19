@@ -64,11 +64,6 @@ export default function HomePage() {
                 <CardContent>
                   <CreditSummary />
                 </CardContent>
-                <CardFooter>
-                  <Link href="/credits">
-                    <Button variant="outline">Purchase Credits</Button>
-                  </Link>
-                </CardFooter>
               </Card>
             </div>
           </TabsContent>
