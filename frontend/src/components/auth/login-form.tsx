@@ -51,12 +51,11 @@ export function LoginForm() {
     setIsLoading(true)
     
     try {
-      // Use URLSearchParams instead of FormData for x-www-form-urlencoded
-      const params = new URLSearchParams()
-      params.append('username', values.email)
-      params.append('password', values.password)
+      const formData = new URLSearchParams()
+      formData.append('username', values.email)
+      formData.append('password', values.password)
       
-      const response = await api.post<AuthResponse>('/api/auth/login', params.toString(), {
+      const response = await api.post<AuthResponse>('/api/auth/login', formData.toString(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },

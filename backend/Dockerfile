@@ -13,6 +13,7 @@ RUN apt-get update \
         build-essential \
         libpq-dev \
         ffmpeg \
+        netcat-traditional \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

@@ -48,11 +48,11 @@ app = FastAPI(
 # Configure CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Wildcard is fine since we're not using credentials
-    allow_credentials=False,  # Set to False when using wildcard origins
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["Content-Type", "Content-Length"],
+    expose_headers=["Content-Type", "Content-Length", "Authorization"],
     max_age=600,
 )
 

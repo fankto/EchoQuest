@@ -8,7 +8,8 @@ const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
-  }
+  },
+  withCredentials: true,
 });
 
 // Add interceptor for adding auth token
@@ -83,7 +84,7 @@ apiClient.interceptors.response.use(
 export const apiRequest = async <T>(
   method: string,
   url: string,
-  data?: Record<string, unknown>,
+  data?: Record<string, unknown> | string,
   config?: AxiosRequestConfig
 ): Promise<T> => {
   try {
@@ -157,6 +158,10 @@ export const api = {
     if (typeof window !== 'undefined' && data instanceof FormData) {
       console.log('FormData detected, using appropriate headers');
       return api.upload<T>(url, data, config);
+    }
+    // Handle URLSearchParams for form-urlencoded data
+    if (typeof data === 'string' && config?.headers?.['Content-Type'] === 'application/x-www-form-urlencoded') {
+      return apiRequest<T>('post', url, data, config);
     }
     return apiRequest<T>('post', url, data as Record<string, unknown>, config);
   },
