@@ -532,7 +532,7 @@ export function useChat({ interviewId, onError }: UseChatOptions) {
 
   // Initialize component by fetching chat sessions and messages
   useEffect(() => {
-    if (interviewId && isMountedRef.current) {
+    if (interviewId && isMountedRef.current && !hasFetchedRef.current) {
       fetchChatSessions().then(() => {
         fetchMessages();
       });

@@ -203,12 +203,17 @@ export function ChatInterface({
   // Clean up resources on unmount or when interviewId changes
   useEffect(() => {
     return () => {
-      // Reset all refs when component unmounts or interviewId changes
+      // Cleanup function
       contentRef.current = '';
       prevMessagesLengthRef.current = 0;
       lastContentRef.current = '';
+      activeTabRef.current = false;
     };
   }, []); // No dependencies needed as we're just cleaning up on unmount
+
+  const handleSessionClick = useCallback((sessionId: string) => {
+    handleSessionSelect(sessionId);
+  }, [handleSessionSelect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -260,14 +265,21 @@ export function ChatInterface({
               </div>
             ) : (
               chatSessions.map((session) => (
-                <div 
+                <button 
+                  type="button"
                   key={session.id}
-                  className={`group flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
+                  className={`group flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm ${
                     session.id === activeChatSession
                       ? 'bg-accent text-accent-foreground'
                       : 'hover:bg-accent/50 cursor-pointer'
                   }`}
-                  onClick={() => handleSessionSelect(session.id)}
+                  onClick={() => handleSessionClick(session.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSessionClick(session.id);
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     <MessageSquare className="h-3.5 w-3.5 shrink-0" />
@@ -298,7 +310,7 @@ export function ChatInterface({
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </div>
+                </button>
               ))
             )}
           </div>

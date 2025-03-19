@@ -4,7 +4,7 @@ EchoQuest is a modern interview transcription and analysis platform that helps r
 
 ## Features
 
-- 🎙️ **Audio Processing**: Enhance audio quality and transcribe interviews with high accuracy using AssemblyAI
+- 🎙️ **Audio Processing**: Enhance audio quality and transcribe interviews with high accuracy using OpenAI's Whisper
 - 🗣️ **Speaker Diarization**: Automatically identify different speakers in the conversation
 - 📝 **Questionnaire Management**: Create and manage interview questionnaires
 - 🔍 **AI Analysis**: Automatically extract answers to predefined questions
@@ -19,8 +19,7 @@ EchoQuest is a modern interview transcription and analysis platform that helps r
 - Docker and Docker Compose
 - Node.js 18+ (for frontend development)
 - Python 3.10+ (for backend development)
-- AssemblyAI API key (required for transcription)
-- OpenAI API key (optional but recommended for chat functionality)
+- OpenAI API key (required for transcription and chat functionality)
 
 ### Installation
 
@@ -45,11 +44,8 @@ JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# AssemblyAI for speech-to-text with diarization (required)
-ASSEMBLY_API_KEY=your-assemblyai-api-key
-
-# OpenAI API (optional for chat functionality)
-# OPENAI_API_KEY=your-openai-api-key
+# OpenAI API (required for transcription and chat functionality)
+OPENAI_API_KEY=your-openai-api-key
 
 # Environment
 ENVIRONMENT=development
