@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CalendarIcon, FileIcon, MessageSquare, PlusIcon } from 'lucide-react'
 import { RecentInterviews } from '@/components/dashboard/recent-interviews'
+import { RecentQuestionnaires } from '@/components/dashboard/recent-questionnaires'
 import { CreditSummary } from '@/components/dashboard/credit-summary'
 import { StatsCards } from '@/components/dashboard/stats-cards'
 
@@ -36,8 +37,8 @@ export default function HomePage() {
           <TabsContent value="overview" className="space-y-4">
             <StatsCards />
             
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <Card className="col-span-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
                 <CardHeader>
                   <CardTitle>Recent Interviews</CardTitle>
                   <CardDescription>
@@ -54,18 +55,35 @@ export default function HomePage() {
                 </CardFooter>
               </Card>
               
-              <Card className="col-span-3">
+              <Card>
                 <CardHeader>
-                  <CardTitle>Credits & Usage</CardTitle>
+                  <CardTitle>Recent Questionnaires</CardTitle>
                   <CardDescription>
-                    Your available credits and recent usage
+                    Your most recently used questionnaires
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CreditSummary />
+                  <RecentQuestionnaires />
                 </CardContent>
+                <CardFooter>
+                  <Link href="/questionnaires">
+                    <Button variant="outline">View All</Button>
+                  </Link>
+                </CardFooter>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Credits & Usage</CardTitle>
+                <CardDescription>
+                  Your available credits and recent usage
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CreditSummary />
+              </CardContent>
+            </Card>
           </TabsContent>
           
           <TabsContent value="interviews" className="space-y-4">
