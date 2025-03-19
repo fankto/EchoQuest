@@ -96,31 +96,14 @@ export default function HomePage() {
                 <Card className="h-full cursor-pointer hover:bg-muted/50 transition-colors">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
-                      View All
+                      Interviews
                     </CardTitle>
                     <FileIcon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">Interviews</div>
+                    <div className="text-2xl font-bold">Manage</div>
                     <p className="text-xs text-muted-foreground pt-1">
-                      Browse and manage all your interviews
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-              
-              <Link href="/calendar">
-                <Card className="h-full cursor-pointer hover:bg-muted/50 transition-colors">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Calendar
-                    </CardTitle>
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">Schedule</div>
-                    <p className="text-xs text-muted-foreground pt-1">
-                      View your interview schedule
+                      View and manage your interviews
                     </p>
                   </CardContent>
                 </Card>
@@ -159,23 +142,6 @@ export default function HomePage() {
                     <div className="text-2xl font-bold">Questionnaires</div>
                     <p className="text-xs text-muted-foreground pt-1">
                       Browse and manage all your questionnaires
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-              
-              <Link href="/chat">
-                <Card className="h-full cursor-pointer hover:bg-muted/50 transition-colors">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Interview Chat
-                    </CardTitle>
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">Chat</div>
-                    <p className="text-xs text-muted-foreground pt-1">
-                      Chat with your interview transcripts
                     </p>
                   </CardContent>
                 </Card>
