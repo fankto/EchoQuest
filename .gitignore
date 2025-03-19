@@ -9,3 +9,4 @@ extracted_code.txt
 extract_code.sh
 setup-echoquest.sh
 data/
+*.pyc
