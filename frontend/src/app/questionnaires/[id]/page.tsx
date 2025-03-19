@@ -14,6 +14,7 @@ import { ChevronLeft, FileText, Pencil, Trash, PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '@/lib/api-client'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { InterviewStatus } from '@/types/interview'
 import {
   Select,
   SelectContent,
@@ -110,7 +111,7 @@ export default function QuestionnairePage() {
       
       if (data) {
         const availableOnes = data.filter(interview => 
-          interview.status === 'TRANSCRIBED' && 
+          interview.status === InterviewStatus.TRANSCRIBED && 
           (!relatedInterviews.some(ri => ri.id === interview.id))
         )
         setAvailableInterviews(availableOnes)

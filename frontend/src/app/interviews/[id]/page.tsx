@@ -721,9 +721,7 @@ export default function InterviewDetailPage() {
                                   console.log(`Attempting to remove questionnaire ${questionnaire.id} from interview ${id}`);
                                   
                                   // Explicitly construct the URL with query parameters
-                                  const response = await api.delete(`/api/interviews/${id}/remove-questionnaire`, {
-                                    questionnaire_id: questionnaire.id
-                                  });
+                                  const response = await api.delete(`/api/interviews/${id}/remove-questionnaire?questionnaire_id=${questionnaire.id}`);
                                   
                                   console.log('Remove questionnaire response:', response);
                                   toast.success('Questionnaire removed successfully');
@@ -810,9 +808,7 @@ export default function InterviewDetailPage() {
                                 console.log(`Attempting to remove questionnaire ${interview.questionnaire.id} from interview ${id}`);
                                 
                                 // Explicitly construct the URL with query parameters
-                                const response = await api.delete(`/api/interviews/${id}/remove-questionnaire`, {
-                                  questionnaire_id: interview.questionnaire.id
-                                });
+                                const response = await api.delete(`/api/interviews/${id}/remove-questionnaire?questionnaire_id=${interview.questionnaire.id}`);
                                 
                                 console.log('Remove questionnaire response:', response);
                                 toast.success('Questionnaire removed successfully');

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, or_
 from loguru import logger
 
 from app.api.deps import get_current_active_user
@@ -842,10 +842,16 @@ async def list_interviews_by_questionnaire(
             detail="Not enough permissions",
         )
     
-    # Query for interviews with this questionnaire
-    query = select(Interview).where(
-        Interview.questionnaire_id == questionnaire_id,
+    # Query for interviews with this questionnaire through both direct and many-to-many relationships
+    query = select(Interview).outerjoin(
+        interview_questionnaire,
+        Interview.id == interview_questionnaire.c.interview_id
+    ).where(
         Interview.owner_id == current_user.id,
+        or_(
+            Interview.questionnaire_id == questionnaire_id,
+            interview_questionnaire.c.questionnaire_id == questionnaire_id
+        )
     ).order_by(Interview.updated_at.desc())
     
     result = await db.execute(query)
