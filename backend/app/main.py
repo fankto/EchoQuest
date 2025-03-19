@@ -60,8 +60,18 @@ app.add_middleware(
 add_pagination(app)
 
 # Mount static directories for media files
-app.mount("/api/media/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
-app.mount("/api/media/processed", StaticFiles(directory=settings.PROCESSED_DIR), name="processed")
+app.mount("/api/media/uploads", StaticFiles(directory=settings.UPLOAD_DIR, html=True), name="uploads")
+app.mount("/api/media/processed", StaticFiles(directory=settings.PROCESSED_DIR, html=True), name="processed")
+
+# Add CORS headers to static files
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/media/"):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

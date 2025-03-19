@@ -39,6 +39,14 @@ type QuestionnaireFormProps = {
   onUpdate?: (data: { id: string, title: string, description?: string, content: string, questions: string[] }) => void
 }
 
+interface QuestionnaireResponse {
+  id: string;
+  title: string;
+  description?: string;
+  content: string;
+  questions: string[];
+}
+
 export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: QuestionnaireFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [questions, setQuestions] = useState<string[]>(initialData?.questions || [])
@@ -64,7 +72,7 @@ export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: Question
       if (values.content.length >= 50) {
         setIsExtracting(true)
         try {
-          const response = await api.post('/api/questionnaires/extract-questions', {
+          const response = await api.post<QuestionnaireResponse>('/api/questionnaires/extract-questions', {
             content: values.content
           })
           if (response.questions) {
@@ -91,7 +99,7 @@ export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: Question
       
       if (initialData?.id) {
         // Update existing
-        const response = await api.upload(`/api/questionnaires/${initialData.id}`, formData, undefined, 'patch')
+        const response = await api.upload<QuestionnaireResponse>(`/api/questionnaires/${initialData.id}`, formData, undefined, 'patch')
         toast.success('Questionnaire updated successfully')
         // Update local state with the response
         setQuestions(response.questions)
@@ -101,12 +109,16 @@ export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: Question
         router.push(`/questionnaires/${initialData.id}`)
       } else {
         // Create new
-        const response = await api.upload('/api/questionnaires', formData)
+        const response = await api.upload<QuestionnaireResponse>('/api/questionnaires', formData)
         toast.success('Questionnaire created successfully')
         router.push(`/questionnaires/${response.id}`)
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to save questionnaire')
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        toast.error(error.message || 'Failed to save questionnaire')
+      } else {
+        toast.error('Failed to save questionnaire')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -176,11 +188,11 @@ export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: Question
               </h3>
               {questions.length > 0 ? (
                 <ul className="space-y-1 text-sm">
-                  {questions.map((question, index) => (
-                    <li key={index} className="p-2 rounded bg-muted flex items-start">
-                      <span className="mr-2 text-muted-foreground">{index + 1}.</span>
+                  {questions.map((question) => (
+                    <div key={question} className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{questions.indexOf(question) + 1}.</span>
                       <span>{question}</span>
-                    </li>
+                    </div>
                   ))}
                 </ul>
               ) : (

@@ -32,7 +32,7 @@ async def create_questionnaire(
     content: str = Form(...),
     description: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
-    questions: Optional[List[str]] = Form(None),
+    questions: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -52,16 +52,28 @@ async def create_questionnaire(
         content=content,
     )
     
-    # If questions are not provided, extract them
-    if not questions:
-        questions = await questionnaire_service.extract_questions(content)
+    # Parse questions if provided
+    parsed_questions = None
+    if questions:
+        try:
+            parsed_questions = json.loads(questions)
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse questions JSON: {questions}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid questions format",
+            )
+    
+    # If questions are not provided or parsing failed, extract them
+    if not parsed_questions:
+        parsed_questions = await questionnaire_service.extract_questions(content)
     
     # Create questionnaire
     questionnaire = await questionnaire_crud.create(
         db=db,
         obj_in=questionnaire_in,
         creator_id=current_user.id,
-        questions=questions,
+        questions=parsed_questions,
     )
     
     await db.commit()
