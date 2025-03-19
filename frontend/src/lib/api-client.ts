@@ -169,13 +169,8 @@ export const api = {
   put: <T>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig) => 
     apiRequest<T>('put', url, data, config),
   
-  patch: <T>(url: string, data?: unknown, config?: AxiosRequestConfig) => {
-    // Automatically detect FormData and set the proper headers
-    if (typeof window !== 'undefined' && data instanceof FormData) {
-      console.log('FormData detected in patch, using appropriate headers');
-      return api.upload<T>(url, data, config);
-    }
-    return apiRequest<T>('patch', url, data as Record<string, unknown>, config);
+  patch: <T>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig) => {
+    return apiRequest<T>('patch', url, data, config);
   },
   
   delete: <T>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig) => {
@@ -209,9 +204,10 @@ export const api = {
   },
     
   // Special method for handling FormData uploads
-  upload: <T>(url: string, formData: FormData, config?: AxiosRequestConfig) => {
-    console.log('Using upload method for', url);
-    return apiClient.post<T>(url, formData, {
+  upload: <T>(url: string, formData: FormData, config?: AxiosRequestConfig, method: 'post' | 'patch' = 'post') => {
+    console.log(`Using ${method} method for`, url);
+    const requestMethod = method === 'post' ? apiClient.post : apiClient.patch;
+    return requestMethod<T>(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

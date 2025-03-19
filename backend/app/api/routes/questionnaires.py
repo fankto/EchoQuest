@@ -1,5 +1,6 @@
 import uuid
 from typing import Any, List, Optional
+import json
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi_pagination import Page
@@ -151,7 +152,7 @@ async def update_questionnaire(
     title: Optional[str] = Form(None),
     content: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
-    questions: Optional[List[str]] = Form(None),
+    questions: Optional[str] = Form(None),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -175,16 +176,27 @@ async def update_questionnaire(
                 detail="Not enough permissions",
             )
     
+    # Parse questions if provided
+    parsed_questions = None
+    if questions:
+        try:
+            parsed_questions = json.loads(questions)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid questions format. Expected JSON string.",
+            )
+    
     # Create update data
     update_data = QuestionnairePatch(
         title=title,
         content=content,
         description=description,
-        questions=questions,
+        questions=parsed_questions,
     )
     
-    # Extract questions if content is updated but questions aren't provided
-    if content and not questions:
+    # Always extract questions if content is updated
+    if content:
         questions = await questionnaire_service.extract_questions(content)
         update_data.questions = questions
     

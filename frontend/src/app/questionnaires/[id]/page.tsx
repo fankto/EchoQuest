@@ -237,7 +237,13 @@ export default function QuestionnairePage() {
           </div>
           
           <div className="mx-auto max-w-3xl">
-            <QuestionnaireForm initialData={questionnaire} />
+            <QuestionnaireForm 
+              initialData={questionnaire} 
+              onSuccess={() => setIsEditing(false)}
+              onUpdate={(updatedData) => {
+                setQuestionnaire(prev => prev ? { ...prev, ...updatedData } : null)
+              }}
+            />
           </div>
         </main>
       </div>

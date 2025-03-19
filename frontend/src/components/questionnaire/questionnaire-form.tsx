@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -35,9 +35,11 @@ type QuestionnaireFormProps = {
     content?: string
     questions?: string[]
   }
+  onSuccess?: () => void
+  onUpdate?: (data: { id: string, title: string, description?: string, content: string, questions: string[] }) => void
 }
 
-export function QuestionnaireForm({ initialData }: QuestionnaireFormProps) {
+export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: QuestionnaireFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [questions, setQuestions] = useState<string[]>(initialData?.questions || [])
   const [isExtracting, setIsExtracting] = useState(false)
@@ -52,41 +54,30 @@ export function QuestionnaireForm({ initialData }: QuestionnaireFormProps) {
     },
   })
   
-  const watchContent = form.watch('content')
-  
-  // Extract questions when content changes
-  useEffect(() => {
-    const extractQuestions = async () => {
-      if (!watchContent || watchContent.length < 50) return
-      
-      try {
-        setIsExtracting(true)
-        const response = await api.post('/api/questionnaires/extract-questions', {
-          content: watchContent
-        })
-        
-        if (response.questions) {
-          setQuestions(response.questions)
-        }
-      } catch (error) {
-        // Silent fail - don't notify user of extraction failures
-        console.error('Failed to extract questions:', error)
-      } finally {
-        setIsExtracting(false)
-      }
-    }
-    
-    const debounce = setTimeout(() => {
-      extractQuestions()
-    }, 1000)
-    
-    return () => clearTimeout(debounce)
-  }, [watchContent])
-  
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
     
     try {
+      let extractedQuestions = questions // Use current questions as default
+      
+      // First extract questions if content is long enough
+      if (values.content.length >= 50) {
+        setIsExtracting(true)
+        try {
+          const response = await api.post('/api/questionnaires/extract-questions', {
+            content: values.content
+          })
+          if (response.questions) {
+            extractedQuestions = response.questions
+            setQuestions(response.questions)
+          }
+        } catch (error) {
+          console.error('Failed to extract questions:', error)
+        } finally {
+          setIsExtracting(false)
+        }
+      }
+      
       const formData = new FormData()
       formData.append('title', values.title)
       formData.append('content', values.content)
@@ -95,14 +86,19 @@ export function QuestionnaireForm({ initialData }: QuestionnaireFormProps) {
         formData.append('description', values.description)
       }
       
-      if (questions.length > 0) {
-        questions.forEach(q => formData.append('questions', q))
-      }
+      // Use the extracted questions instead of the state
+      formData.append('questions', JSON.stringify(extractedQuestions))
       
       if (initialData?.id) {
         // Update existing
-        await api.upload(`/api/questionnaires/${initialData.id}`, formData)
+        const response = await api.upload(`/api/questionnaires/${initialData.id}`, formData, undefined, 'patch')
         toast.success('Questionnaire updated successfully')
+        // Update local state with the response
+        setQuestions(response.questions)
+        // Call onUpdate with the updated data
+        onUpdate?.(response)
+        onSuccess?.()
+        router.push(`/questionnaires/${initialData.id}`)
       } else {
         // Create new
         const response = await api.upload('/api/questionnaires', formData)
