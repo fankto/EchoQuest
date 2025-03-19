@@ -28,7 +28,7 @@ async def create_default_admin(db: AsyncSession) -> None:
         # Check if admin user exists
         admin_email = "admin@example.com"
         admin = await user_crud.get_by_email(db, email=admin_email)
-        
+
         if not admin:
             logger.info("Creating default admin user")
             admin_data = UserCreate(
@@ -37,7 +37,7 @@ async def create_default_admin(db: AsyncSession) -> None:
                 full_name="Admin User",
             )
             admin = await user_crud.create(db, obj_in=admin_data, role=UserRole.ADMIN)
-            admin.available_interview_credits = 10
+            admin.available_interview_credits = 100
             admin.available_chat_tokens = 100000
             await db.commit()
             logger.info(f"Default admin created: {admin_email}")
