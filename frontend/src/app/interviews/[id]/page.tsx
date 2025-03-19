@@ -12,6 +12,7 @@ import { ChevronLeft, PlayCircle, MessageSquare, FileText, ListIcon, PlusIcon, C
 import Link from 'next/link'
 import api from '@/lib/api-client'
 import { AudioPlayer } from '@/components/interview/audio-player'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 // Type imports
 import type { TranscriptSegment } from '@/components/interview/transcript-viewer'
@@ -740,26 +741,28 @@ export default function InterviewDetailPage() {
                         
                         <div className="p-4 bg-card">
                           {questionnaire.questions?.length > 0 ? (
-                            <div className="grid gap-4">
-                              {questionnaire.questions.map((question, index) => {
-                                const hasAnswer = interview.generated_answers?.[questionnaire.id]?.[question];
-                                return (
-                                  <div key={`question-${questionnaire.id}-${index}`} className="border-b pb-4 last:border-b-0 last:pb-0">
-                                    <div className="flex justify-between items-start gap-2 mb-2">
-                                      <p className="font-medium text-card-foreground">{question}</p>
-                                      <div className={`text-xs px-2 py-1 rounded-full ${hasAnswer ? 'bg-primary/20 text-primary-foreground' : 'bg-muted'} flex-shrink-0`}>
-                                        {hasAnswer ? 'Answered' : 'Pending'}
+                            <ScrollArea className="h-[400px]">
+                              <div className="grid gap-4 pr-4">
+                                {questionnaire.questions.map((question, index) => {
+                                  const hasAnswer = interview.generated_answers?.[questionnaire.id]?.[question];
+                                  return (
+                                    <div key={`question-${questionnaire.id}-${index}`} className="border-b pb-4 last:border-b-0 last:pb-0">
+                                      <div className="flex justify-between items-start gap-2 mb-2">
+                                        <p className="font-medium text-card-foreground">{question}</p>
+                                        <div className={`text-xs px-2 py-1 rounded-full ${hasAnswer ? 'bg-primary/20 text-primary-foreground' : 'bg-muted'} flex-shrink-0`}>
+                                          {hasAnswer ? 'Answered' : 'Pending'}
+                                        </div>
                                       </div>
+                                      {hasAnswer && (
+                                        <div className="mt-2 ml-4 pl-2 border-l-2 border-primary/30">
+                                          <p className="text-sm text-muted-foreground whitespace-pre-line">{interview.generated_answers?.[questionnaire.id]?.[question]}</p>
+                                        </div>
+                                      )}
                                     </div>
-                                    {hasAnswer && (
-                                      <div className="mt-2 ml-4 pl-2 border-l-2 border-primary/30">
-                                        <p className="text-sm text-muted-foreground whitespace-pre-line">{interview.generated_answers?.[questionnaire.id]?.[question]}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
+                                  );
+                                })}
+                              </div>
+                            </ScrollArea>
                           ) : (
                             <p className="text-sm text-muted-foreground">No questions found in this questionnaire</p>
                           )}
@@ -827,26 +830,28 @@ export default function InterviewDetailPage() {
                       
                       <div className="p-4 bg-card">
                         {interview.questionnaire?.questions ? (
-                          <div className="grid gap-4">
-                            {interview.questionnaire.questions.map((question, index) => {
-                              const hasAnswer = interview.generated_answers?.[interview.questionnaire?.id || '']?.[question];
-                              return (
-                                <div key={`question-${interview.questionnaire?.id}-${index}`} className="border-b pb-4 last:border-b-0 last:pb-0">
-                                  <div className="flex justify-between items-start gap-2 mb-2">
-                                    <p className="font-medium text-card-foreground">{question}</p>
-                                    <div className={`text-xs px-2 py-1 rounded-full ${hasAnswer ? 'bg-primary/20 text-primary-foreground' : 'bg-muted'} flex-shrink-0`}>
-                                      {hasAnswer ? 'Answered' : 'Pending'}
+                          <ScrollArea className="h-[400px]">
+                            <div className="grid gap-4 pr-4">
+                              {interview.questionnaire.questions.map((question, index) => {
+                                const hasAnswer = interview.generated_answers?.[interview.questionnaire?.id || '']?.[question];
+                                return (
+                                  <div key={`question-${interview.questionnaire?.id}-${index}`} className="border-b pb-4 last:border-b-0 last:pb-0">
+                                    <div className="flex justify-between items-start gap-2 mb-2">
+                                      <p className="font-medium text-card-foreground">{question}</p>
+                                      <div className={`text-xs px-2 py-1 rounded-full ${hasAnswer ? 'bg-primary/20 text-primary-foreground' : 'bg-muted'} flex-shrink-0`}>
+                                        {hasAnswer ? 'Answered' : 'Pending'}
+                                      </div>
                                     </div>
+                                    {hasAnswer && (
+                                      <div className="mt-2 ml-4 pl-2 border-l-2 border-primary/30">
+                                        <p className="text-sm text-muted-foreground whitespace-pre-line">{interview.generated_answers?.[interview.questionnaire?.id || '']?.[question]}</p>
+                                      </div>
+                                    )}
                                   </div>
-                                  {hasAnswer && (
-                                    <div className="mt-2 ml-4 pl-2 border-l-2 border-primary/30">
-                                      <p className="text-sm text-muted-foreground whitespace-pre-line">{interview.generated_answers?.[interview.questionnaire?.id || '']?.[question]}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
                         ) : (
                           <p className="text-sm text-muted-foreground">No questions found in this questionnaire</p>
                         )}
