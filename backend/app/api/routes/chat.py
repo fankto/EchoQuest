@@ -176,7 +176,7 @@ async def chat_with_interview(
         )
         
         # Update the chat session title if it's a new session
-        if chat_session and chat_session.title == user_message.content[:50]:
+        if chat_session and chat_session.title == "New Chat":
             # Try to generate a better title based on the first exchange
             title_prompt = f"USER: {user_message.content[:100]}\nASSISTANT: {assistant_message.content[:100]}\n\nGenerately a very concise title (maximum 5 words) for this conversation:"
             

@@ -37,15 +37,31 @@ type Questionnaire = {
   interview_count: number
 }
 
+type Interview = {
+  id: string
+  title: string
+  interviewee_name: string
+  date: string
+  status?: string
+}
+
+type PaginatedResponse<T> = {
+  items: T[]
+  total: number
+  page: number
+  size: number
+  pages: number
+}
+
 export default function QuestionnairePage() {
   const { id } = useParams()
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [relatedInterviews, setRelatedInterviews] = useState<Array<{id: string, title: string, interviewee_name: string, date: string}>>([])
+  const [relatedInterviews, setRelatedInterviews] = useState<Interview[]>([])
   const [isLoadingInterviews, setIsLoadingInterviews] = useState(false)
-  const [availableInterviews, setAvailableInterviews] = useState<Array<{id: string, title: string, interviewee_name: string, date: string}>>([])
+  const [availableInterviews, setAvailableInterviews] = useState<Interview[]>([])
   const [selectedInterviewId, setSelectedInterviewId] = useState<string>("")
   const [isLinkingDialogOpen, setIsLinkingDialogOpen] = useState(false)
   const [isLinkingInterview, setIsLinkingInterview] = useState(false)
@@ -107,19 +123,30 @@ export default function QuestionnairePage() {
     
     try {
       setIsLinkingInterview(false)
-      const data = await api.get<Array<{id: string, title: string, interviewee_name: string, date: string, status: string}>>('/api/interviews')
+      console.log('Fetching available interviews...')
+      const response = await api.get<PaginatedResponse<Interview>>('/api/interviews')
+      console.log('Received interviews data:', response)
       
-      if (data) {
-        const availableOnes = data.filter(interview => 
-          interview.status === InterviewStatus.TRANSCRIBED && 
-          (!relatedInterviews.some(ri => ri.id === interview.id))
-        )
+      if (response?.items) {
+        const availableOnes = response.items.filter(interview => {
+          const isTranscribed = interview.status === InterviewStatus.TRANSCRIBED
+          const isNotAlreadyLinked = !relatedInterviews.some(ri => ri.id === interview.id)
+          console.log(`Interview ${interview.id}: transcribed=${isTranscribed}, notLinked=${isNotAlreadyLinked}`)
+          return isTranscribed && isNotAlreadyLinked
+        })
+        console.log('Filtered available interviews:', availableOnes)
         setAvailableInterviews(availableOnes)
       }
     } catch (error) {
       console.error('Failed to fetch available interviews:', error)
     }
   }, [id, relatedInterviews])
+
+  useEffect(() => {
+    if (id && !isLoading) {
+      fetchAvailableInterviews()
+    }
+  }, [id, isLoading, fetchAvailableInterviews])
 
   const linkInterview = async () => {
     if (!selectedInterviewId) {
