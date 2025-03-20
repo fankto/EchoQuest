@@ -55,7 +55,7 @@ export function LoginForm() {
       formData.append('username', values.email)
       formData.append('password', values.password)
       
-      const response = await api.post<AuthResponse>('/api/auth/login', formData.toString(), {
+      const response = await api.post<AuthResponse>('/auth/login', formData.toString(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },

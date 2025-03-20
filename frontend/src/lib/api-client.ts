@@ -1,7 +1,7 @@
 import axios, { type AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios'
 
 // Define base API URL
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`
 
 // Create axios instance
 const apiClient = axios.create({
@@ -51,7 +51,7 @@ apiClient.interceptors.response.use(
         }
         
         // Call refresh token endpoint
-        const response = await axios.post(`${API_URL}/api/auth/refresh`, {
+        const response = await axios.post(`${API_URL}/auth/refresh`, {
           refresh_token: refreshToken,
         })
         

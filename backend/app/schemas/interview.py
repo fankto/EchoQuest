@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from uuid import UUID
+import json
 
 from pydantic import BaseModel, Field, validator, ConfigDict
 
@@ -52,6 +53,24 @@ class InterviewOut(InterviewBase, IdentifiedBase):
     owner_id: UUID
     organization_id: Optional[UUID] = None
     remaining_chat_tokens: Optional[int] = None
+
+    @validator('original_filenames', pre=True)
+    def parse_original_filenames(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        return v
+
+    @validator('processed_filenames', pre=True)
+    def parse_processed_filenames(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        return v
 
 
 class InterviewDetailOut(InterviewOut):

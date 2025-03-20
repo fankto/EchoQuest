@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import logging
 from datetime import datetime
 from typing import Dict, Any
 
@@ -10,7 +11,7 @@ from loguru import logger
 from app.core.config import settings
 
 
-class InterceptHandler(loguru.Handler):
+class InterceptHandler(logging.Handler):
     """
     Intercept standard logging messages toward loguru
 
@@ -18,7 +19,7 @@ class InterceptHandler(loguru.Handler):
     module and redirects them to loguru.
     """
 
-    def emit(self, record: loguru.Record) -> None:
+    def emit(self, record):
         # Get corresponding loguru level if it exists
         try:
             level = logger.level(record.levelname).name
@@ -26,8 +27,8 @@ class InterceptHandler(loguru.Handler):
             level = record.levelno
 
         # Find caller from where the logged message originated
-        frame, depth = sys._getframe(6), 6
-        while frame and frame.f_code.co_filename == logging.__file__:
+        frame, depth = logging.currentframe(), 2
+        while frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
 
@@ -140,7 +141,6 @@ def setup_logging() -> None:
         )
 
     # Intercept standard logging
-    import logging
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
     # Update logging for commonly used libraries

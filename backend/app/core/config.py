@@ -127,9 +127,6 @@ class Settings(BaseSettings):
         """Get database URL for Alembic migrations"""
         return str(self.DATABASE_URL).replace("+asyncpg", "")
 
-    class Config:
-        case_sensitive = True
-
 
 @lru_cache()
 def get_settings() -> Settings:

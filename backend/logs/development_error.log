@@ -1,0 +1,1072 @@
+2025-03-20 19:34:44.612 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-20 19:34:44.613 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials
+2025-03-20 19:44:19.989 | ERROR    | app.main:dispatch:55 | Error 1742499859.9130201: 2 validation errors for Page[InterviewOut]
+items.0.original_filenames
+  Input should be a valid list [type=list_type, input_value='["c98d4a6b-a4ab-4f05-ab77-06d38dca37b9.m4a"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+items.0.processed_filenames
+  Input should be a valid list [type=list_type, input_value='["processed_e50ff9d3-ac8...b1d9-222b45de9fd8.wav"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type after 0.077s
+2025-03-20 19:44:19.990 | ERROR    | logging:callHandlers:1706 | Exception in ASGI application
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 98, in receive
+    return self.receive_nowait()
+           │    └ <function MemoryObjectReceiveStream.receive_nowait at 0x7b26fbe90900>
+           └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 93, in receive_nowait
+    raise WouldBlock
+          └ <class 'anyio.WouldBlock'>
+
+anyio.WouldBlock
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 78, in call_next
+    message = await recv_stream.receive()
+                    │           └ <function MemoryObjectReceiveStream.receive at 0x7b26fbe909a0>
+                    └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 118, in receive
+    raise EndOfStream
+          └ <class 'anyio.EndOfStream'>
+
+anyio.EndOfStream
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "<string>", line 1, in <module>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+               │     │   └ 4
+               │     └ 7
+               └ <function _main at 0x7b26fcad6520>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+           │    │          └ 4
+           │    └ <function BaseProcess._bootstrap at 0x7b26fce07ba0>
+           └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+    │    └ <function BaseProcess.run at 0x7b26fce07100>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    │    │        │    │        │    └ {'config': <uvicorn.config.Config object at 0x7b26fc0fa250>, 'target': <bound method Server.run of <uvicorn.server.Server obj...
+    │    │        │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    │        │    └ ()
+    │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    └ <function subprocess_started at 0x7b26fbf82a20>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/_subprocess.py", line 76, in subprocess_started
+    target(sockets=sockets)
+    │              └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+    └ <bound method Server.run of <uvicorn.server.Server object at 0x7b26fbec67d0>>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 61, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           │       │   │    │             └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+           │       │   │    └ <function Server.serve at 0x7b26fbf81a80>
+           │       │   └ <uvicorn.server.Server object at 0x7b26fbec67d0>
+           │       └ <function run at 0x7b26fc3593a0>
+           └ <module 'asyncio' from '/usr/local/lib/python3.11/asyncio/__init__.py'>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           │      │   └ <coroutine object Server.serve at 0x7b26fbec97a0>
+           │      └ <function Runner.run at 0x7b26fc3b6f20>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /usr/local/lib/python3.11/site-packages/uvicorn/server.py:81> wai...
+           │    │     └ <cyfunction Loop.run_until_complete at 0x7b26fbf01a40>
+           │    └ <uvloop.Loop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+> File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+                   └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+                 │    │   │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a9114d...
+                 │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+                 │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+                 │    └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+                 └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 292, in __call__
+    await super().__call__(scope, receive, send)
+                           │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a9114d...
+                           │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+                           └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+  File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a9114d...
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+          └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x7b26a9b1a980>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+          └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90fce00>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a90d1590>
+                     │    └ <function add_cors_headers at 0x7b26acf1fa60>
+                     └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+
+  File "/app/app/main.py", line 125, in add_cors_headers
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a90d1590>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90fce00>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a90fd620>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90fd580>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+          └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90e0720>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a90d0f50>
+                     │    └ <bound method RequestLoggingMiddleware.dispatch of <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>>
+                     └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+
+  File "/app/app/main.py", line 40, in dispatch
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a90d0f50>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90e0720>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a90e16c0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+          └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+          │    │               │      │        │                     └ Headers({'host': 'localhost:8000', 'connection': 'keep-alive', 'sec-ch-ua-platform': '"Linux"', 'authorization': 'Bearer eyJh...
+          │    │               │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a90e16c0>
+          │    │               │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │               └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function CORSMiddleware.simple_response at 0x7b26f98fdda0>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+          │    │   │      │        └ functools.partial(<bound method CORSMiddleware.send of <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>>, ...
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+          └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.routing.APIRouter object at 0x7b26acff8190>
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+          │     │      │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │     └ <function Route.handle at 0x7b26f9aa40e0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function request_response.<locals>.app at 0x7b26abcb2ac0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+                     │    └ <starlette.requests.Request object at 0x7b26a90f3090>
+                     └ <function get_request_handler.<locals>.app at 0x7b26abcb36a0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 273, in app
+    raw_response = await run_endpoint_function(
+                         └ <function run_endpoint_function at 0x7b26f9a66ac0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 190, in run_endpoint_function
+    return await dependant.call(**values)
+                 │         │      └ {'current_user': <app.models.models.User object at 0x7b26a9103c50>, 'db': <sqlalchemy.orm.session.AsyncSession object at 0x7b...
+                 │         └ <function list_interviews at 0x7b26f32a0cc0>
+                 └ <fastapi.dependencies.models.Dependant object at 0x7b26abcf4910>
+
+  File "/app/app/api/routes/interviews.py", line 60, in list_interviews
+    return await paginate(
+                 └ <function paginate at 0x7b26f17f9b20>
+
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             │       │      └ [<app.models.models.Interview object at 0x7b26a8f51a10>]
+             │       └ <method 'switch' of 'greenlet.greenlet' objects>
+             └ <_AsyncIoGreenlet object at 0x7b26a9b094c0 (otid=0x7b26fb92da70) dead>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/ext/sqlalchemy.py", line 276, in exec_pagination
+    return create_page(
+           └ <function create_page at 0x7b26f992a980>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/api.py", line 182, in create_page
+    return _page_val.get().create(items, **kwargs)
+           │         │            │        └ {'total': 1, 'params': Params(page=1, size=10)}
+           │         │            └ [<app.models.models.Interview object at 0x7b26a8f51a10>]
+           │         └ <method 'get' of '_contextvars.ContextVar' objects>
+           └ <ContextVar name='_page_val' default=<class 'fastapi_pagination.default.Page'> at 0x7b26f999a3e0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/default.py", line 73, in create
+    return create_pydantic_model(
+           └ <function create_pydantic_model at 0x7b26f98ff420>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/utils.py", line 171, in create_pydantic_model
+    return model_cls.model_validate(kwargs, from_attributes=True)
+           │         │              └ {'total': 1, 'items': [<app.models.models.Interview object at 0x7b26a8f51a10>], 'page': 1, 'size': 10, 'pages': 1}
+           │         └ <classmethod(<function BaseModel.model_validate at 0x7b26fb125d00>)>
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+  File "/usr/local/lib/python3.11/site-packages/pydantic/main.py", line 627, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           │   │                      └ <method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>
+           │   └ SchemaValidator(title="Page[InterviewOut]", validator=Model(
+           │         ModelValidator {
+           │             revalidate: Never,
+           │             validato...
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for Page[InterviewOut]
+items.0.original_filenames
+  Input should be a valid list [type=list_type, input_value='["c98d4a6b-a4ab-4f05-ab77-06d38dca37b9.m4a"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+items.0.processed_filenames
+  Input should be a valid list [type=list_type, input_value='["processed_e50ff9d3-ac8...b1d9-222b45de9fd8.wav"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+2025-03-20 19:44:19.997 | ERROR    | logging:callHandlers:1706 | Exception in ASGI application
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 98, in receive
+    return self.receive_nowait()
+           │    └ <function MemoryObjectReceiveStream.receive_nowait at 0x7b26fbe90900>
+           └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 93, in receive_nowait
+    raise WouldBlock
+          └ <class 'anyio.WouldBlock'>
+
+anyio.WouldBlock
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 78, in call_next
+    message = await recv_stream.receive()
+                    │           └ <function MemoryObjectReceiveStream.receive at 0x7b26fbe909a0>
+                    └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 118, in receive
+    raise EndOfStream
+          └ <class 'anyio.EndOfStream'>
+
+anyio.EndOfStream
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "<string>", line 1, in <module>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+               │     │   └ 4
+               │     └ 7
+               └ <function _main at 0x7b26fcad6520>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+           │    │          └ 4
+           │    └ <function BaseProcess._bootstrap at 0x7b26fce07ba0>
+           └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+    │    └ <function BaseProcess.run at 0x7b26fce07100>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    │    │        │    │        │    └ {'config': <uvicorn.config.Config object at 0x7b26fc0fa250>, 'target': <bound method Server.run of <uvicorn.server.Server obj...
+    │    │        │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    │        │    └ ()
+    │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    └ <function subprocess_started at 0x7b26fbf82a20>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/_subprocess.py", line 76, in subprocess_started
+    target(sockets=sockets)
+    │              └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+    └ <bound method Server.run of <uvicorn.server.Server object at 0x7b26fbec67d0>>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 61, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           │       │   │    │             └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+           │       │   │    └ <function Server.serve at 0x7b26fbf81a80>
+           │       │   └ <uvicorn.server.Server object at 0x7b26fbec67d0>
+           │       └ <function run at 0x7b26fc3593a0>
+           └ <module 'asyncio' from '/usr/local/lib/python3.11/asyncio/__init__.py'>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           │      │   └ <coroutine object Server.serve at 0x7b26fbec97a0>
+           │      └ <function Runner.run at 0x7b26fc3b6f20>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /usr/local/lib/python3.11/site-packages/uvicorn/server.py:81> wai...
+           │    │     └ <cyfunction Loop.run_until_complete at 0x7b26fbf01a40>
+           │    └ <uvloop.Loop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+> File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+                   └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+                 │    │   │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a9114d...
+                 │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+                 │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+                 │    └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+                 └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 292, in __call__
+    await super().__call__(scope, receive, send)
+                           │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a9114d...
+                           │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+                           └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+  File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a9114d...
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+          └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x7b26a9b1a980>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a91...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+          └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90fce00>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a90d1590>
+                     │    └ <function add_cors_headers at 0x7b26acf1fa60>
+                     └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+
+  File "/app/app/main.py", line 125, in add_cors_headers
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a90d1590>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90fce00>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a90fd620>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90fd580>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+          └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90e0720>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a90d0f50>
+                     │    └ <bound method RequestLoggingMiddleware.dispatch of <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>>
+                     └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+
+  File "/app/app/main.py", line 40, in dispatch
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a90d0f50>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a90e0720>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a90e16c0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+          └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+          │    │               │      │        │                     └ Headers({'host': 'localhost:8000', 'connection': 'keep-alive', 'sec-ch-ua-platform': '"Linux"', 'authorization': 'Bearer eyJh...
+          │    │               │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a90e16c0>
+          │    │               │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │               └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function CORSMiddleware.simple_response at 0x7b26f98fdda0>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+          │    │   │      │        └ functools.partial(<bound method CORSMiddleware.send of <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>>, ...
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+          └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.routing.APIRouter object at 0x7b26acff8190>
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+          │     │      │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │     └ <function Route.handle at 0x7b26f9aa40e0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a90fca40>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a90e2ca0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function request_response.<locals>.app at 0x7b26abcb2ac0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+                     │    └ <starlette.requests.Request object at 0x7b26a90f3090>
+                     └ <function get_request_handler.<locals>.app at 0x7b26abcb36a0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 273, in app
+    raw_response = await run_endpoint_function(
+                         └ <function run_endpoint_function at 0x7b26f9a66ac0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 190, in run_endpoint_function
+    return await dependant.call(**values)
+                 │         │      └ {'current_user': <app.models.models.User object at 0x7b26a9103c50>, 'db': <sqlalchemy.orm.session.AsyncSession object at 0x7b...
+                 │         └ <function list_interviews at 0x7b26f32a0cc0>
+                 └ <fastapi.dependencies.models.Dependant object at 0x7b26abcf4910>
+
+  File "/app/app/api/routes/interviews.py", line 60, in list_interviews
+    return await paginate(
+                 └ <function paginate at 0x7b26f17f9b20>
+
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             │       │      └ [<app.models.models.Interview object at 0x7b26a8f51a10>]
+             │       └ <method 'switch' of 'greenlet.greenlet' objects>
+             └ <_AsyncIoGreenlet object at 0x7b26a9b094c0 (otid=0x7b26fb92da70) dead>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/ext/sqlalchemy.py", line 276, in exec_pagination
+    return create_page(
+           └ <function create_page at 0x7b26f992a980>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/api.py", line 182, in create_page
+    return _page_val.get().create(items, **kwargs)
+           │         │            │        └ {'total': 1, 'params': Params(page=1, size=10)}
+           │         │            └ [<app.models.models.Interview object at 0x7b26a8f51a10>]
+           │         └ <method 'get' of '_contextvars.ContextVar' objects>
+           └ <ContextVar name='_page_val' default=<class 'fastapi_pagination.default.Page'> at 0x7b26f999a3e0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/default.py", line 73, in create
+    return create_pydantic_model(
+           └ <function create_pydantic_model at 0x7b26f98ff420>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/utils.py", line 171, in create_pydantic_model
+    return model_cls.model_validate(kwargs, from_attributes=True)
+           │         │              └ {'total': 1, 'items': [<app.models.models.Interview object at 0x7b26a8f51a10>], 'page': 1, 'size': 10, 'pages': 1}
+           │         └ <classmethod(<function BaseModel.model_validate at 0x7b26fb125d00>)>
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+  File "/usr/local/lib/python3.11/site-packages/pydantic/main.py", line 627, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           │   │                      └ <method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>
+           │   └ SchemaValidator(title="Page[InterviewOut]", validator=Model(
+           │         ModelValidator {
+           │             revalidate: Never,
+           │             validato...
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for Page[InterviewOut]
+items.0.original_filenames
+  Input should be a valid list [type=list_type, input_value='["c98d4a6b-a4ab-4f05-ab77-06d38dca37b9.m4a"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+items.0.processed_filenames
+  Input should be a valid list [type=list_type, input_value='["processed_e50ff9d3-ac8...b1d9-222b45de9fd8.wav"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+2025-03-20 19:44:20.011 | ERROR    | app.main:dispatch:55 | Error 1742499860.0056438: 2 validation errors for Page[InterviewOut]
+items.0.original_filenames
+  Input should be a valid list [type=list_type, input_value='["c98d4a6b-a4ab-4f05-ab77-06d38dca37b9.m4a"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+items.0.processed_filenames
+  Input should be a valid list [type=list_type, input_value='["processed_e50ff9d3-ac8...b1d9-222b45de9fd8.wav"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type after 0.006s
+2025-03-20 19:44:20.012 | ERROR    | logging:callHandlers:1706 | Exception in ASGI application
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 98, in receive
+    return self.receive_nowait()
+           │    └ <function MemoryObjectReceiveStream.receive_nowait at 0x7b26fbe90900>
+           └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 93, in receive_nowait
+    raise WouldBlock
+          └ <class 'anyio.WouldBlock'>
+
+anyio.WouldBlock
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 78, in call_next
+    message = await recv_stream.receive()
+                    │           └ <function MemoryObjectReceiveStream.receive at 0x7b26fbe909a0>
+                    └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 118, in receive
+    raise EndOfStream
+          └ <class 'anyio.EndOfStream'>
+
+anyio.EndOfStream
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "<string>", line 1, in <module>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+               │     │   └ 4
+               │     └ 7
+               └ <function _main at 0x7b26fcad6520>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+           │    │          └ 4
+           │    └ <function BaseProcess._bootstrap at 0x7b26fce07ba0>
+           └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+    │    └ <function BaseProcess.run at 0x7b26fce07100>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    │    │        │    │        │    └ {'config': <uvicorn.config.Config object at 0x7b26fc0fa250>, 'target': <bound method Server.run of <uvicorn.server.Server obj...
+    │    │        │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    │        │    └ ()
+    │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    └ <function subprocess_started at 0x7b26fbf82a20>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/_subprocess.py", line 76, in subprocess_started
+    target(sockets=sockets)
+    │              └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+    └ <bound method Server.run of <uvicorn.server.Server object at 0x7b26fbec67d0>>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 61, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           │       │   │    │             └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+           │       │   │    └ <function Server.serve at 0x7b26fbf81a80>
+           │       │   └ <uvicorn.server.Server object at 0x7b26fbec67d0>
+           │       └ <function run at 0x7b26fc3593a0>
+           └ <module 'asyncio' from '/usr/local/lib/python3.11/asyncio/__init__.py'>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           │      │   └ <coroutine object Server.serve at 0x7b26fbec97a0>
+           │      └ <function Runner.run at 0x7b26fc3b6f20>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /usr/local/lib/python3.11/site-packages/uvicorn/server.py:81> wai...
+           │    │     └ <cyfunction Loop.run_until_complete at 0x7b26fbf01a40>
+           │    └ <uvloop.Loop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+> File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+                   └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+                 │    │   │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8fab6...
+                 │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+                 │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+                 │    └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+                 └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 292, in __call__
+    await super().__call__(scope, receive, send)
+                           │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8fab6...
+                           │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+                           └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+  File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8fab6...
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+          └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x7b26a8fb58a0>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+          └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5940>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a911a3d0>
+                     │    └ <function add_cors_headers at 0x7b26acf1fa60>
+                     └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+
+  File "/app/app/main.py", line 125, in add_cors_headers
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a911a3d0>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5940>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a8fb5b20>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb59e0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+          └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5da0>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a8f524d0>
+                     │    └ <bound method RequestLoggingMiddleware.dispatch of <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>>
+                     └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+
+  File "/app/app/main.py", line 40, in dispatch
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a8f524d0>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5da0>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a8fb5f80>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+          └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+          │    │               │      │        │                     └ Headers({'host': 'localhost:8000', 'connection': 'keep-alive', 'sec-ch-ua-platform': '"Linux"', 'authorization': 'Bearer eyJh...
+          │    │               │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a8fb5f80>
+          │    │               │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │               └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function CORSMiddleware.simple_response at 0x7b26f98fdda0>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+          │    │   │      │        └ functools.partial(<bound method CORSMiddleware.send of <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>>, ...
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+          └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.routing.APIRouter object at 0x7b26acff8190>
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+          │     │      │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │     └ <function Route.handle at 0x7b26f9aa40e0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function request_response.<locals>.app at 0x7b26abcb2ac0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+                     │    └ <starlette.requests.Request object at 0x7b26a8fc4650>
+                     └ <function get_request_handler.<locals>.app at 0x7b26abcb36a0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 273, in app
+    raw_response = await run_endpoint_function(
+                         └ <function run_endpoint_function at 0x7b26f9a66ac0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 190, in run_endpoint_function
+    return await dependant.call(**values)
+                 │         │      └ {'current_user': <app.models.models.User object at 0x7b26a9103c50>, 'db': <sqlalchemy.orm.session.AsyncSession object at 0x7b...
+                 │         └ <function list_interviews at 0x7b26f32a0cc0>
+                 └ <fastapi.dependencies.models.Dependant object at 0x7b26abcf4910>
+
+  File "/app/app/api/routes/interviews.py", line 60, in list_interviews
+    return await paginate(
+                 └ <function paginate at 0x7b26f17f9b20>
+
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             │       │      └ [<app.models.models.Interview object at 0x7b26a8f51d50>]
+             │       └ <method 'switch' of 'greenlet.greenlet' objects>
+             └ <_AsyncIoGreenlet object at 0x7b26ac084440 (otid=0x7b26fb92da70) dead>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/ext/sqlalchemy.py", line 276, in exec_pagination
+    return create_page(
+           └ <function create_page at 0x7b26f992a980>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/api.py", line 182, in create_page
+    return _page_val.get().create(items, **kwargs)
+           │         │            │        └ {'total': 1, 'params': Params(page=1, size=10)}
+           │         │            └ [<app.models.models.Interview object at 0x7b26a8f51d50>]
+           │         └ <method 'get' of '_contextvars.ContextVar' objects>
+           └ <ContextVar name='_page_val' default=<class 'fastapi_pagination.default.Page'> at 0x7b26f999a3e0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/default.py", line 73, in create
+    return create_pydantic_model(
+           └ <function create_pydantic_model at 0x7b26f98ff420>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/utils.py", line 171, in create_pydantic_model
+    return model_cls.model_validate(kwargs, from_attributes=True)
+           │         │              └ {'total': 1, 'items': [<app.models.models.Interview object at 0x7b26a8f51d50>], 'page': 1, 'size': 10, 'pages': 1}
+           │         └ <classmethod(<function BaseModel.model_validate at 0x7b26fb125d00>)>
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+  File "/usr/local/lib/python3.11/site-packages/pydantic/main.py", line 627, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           │   │                      └ <method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>
+           │   └ SchemaValidator(title="Page[InterviewOut]", validator=Model(
+           │         ModelValidator {
+           │             revalidate: Never,
+           │             validato...
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for Page[InterviewOut]
+items.0.original_filenames
+  Input should be a valid list [type=list_type, input_value='["c98d4a6b-a4ab-4f05-ab77-06d38dca37b9.m4a"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+items.0.processed_filenames
+  Input should be a valid list [type=list_type, input_value='["processed_e50ff9d3-ac8...b1d9-222b45de9fd8.wav"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+2025-03-20 19:44:20.016 | ERROR    | logging:callHandlers:1706 | Exception in ASGI application
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 98, in receive
+    return self.receive_nowait()
+           │    └ <function MemoryObjectReceiveStream.receive_nowait at 0x7b26fbe90900>
+           └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 93, in receive_nowait
+    raise WouldBlock
+          └ <class 'anyio.WouldBlock'>
+
+anyio.WouldBlock
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 78, in call_next
+    message = await recv_stream.receive()
+                    │           └ <function MemoryObjectReceiveStream.receive at 0x7b26fbe909a0>
+                    └ MemoryObjectReceiveStream(_state=MemoryObjectStreamState(max_buffer_size=0, buffer=deque([]), open_send_channels=0, open_rece...
+  File "/usr/local/lib/python3.11/site-packages/anyio/streams/memory.py", line 118, in receive
+    raise EndOfStream
+          └ <class 'anyio.EndOfStream'>
+
+anyio.EndOfStream
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "<string>", line 1, in <module>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+               │     │   └ 4
+               │     └ 7
+               └ <function _main at 0x7b26fcad6520>
+  File "/usr/local/lib/python3.11/multiprocessing/spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+           │    │          └ 4
+           │    └ <function BaseProcess._bootstrap at 0x7b26fce07ba0>
+           └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+    │    └ <function BaseProcess.run at 0x7b26fce07100>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    │    │        │    │        │    └ {'config': <uvicorn.config.Config object at 0x7b26fc0fa250>, 'target': <bound method Server.run of <uvicorn.server.Server obj...
+    │    │        │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    │        │    └ ()
+    │    │        └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+    │    └ <function subprocess_started at 0x7b26fbf82a20>
+    └ <SpawnProcess name='SpawnProcess-1' parent=1 started>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/_subprocess.py", line 76, in subprocess_started
+    target(sockets=sockets)
+    │              └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+    └ <bound method Server.run of <uvicorn.server.Server object at 0x7b26fbec67d0>>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/server.py", line 61, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           │       │   │    │             └ [<socket.socket fd=3, family=2, type=1, proto=0, laddr=('0.0.0.0', 8000)>]
+           │       │   │    └ <function Server.serve at 0x7b26fbf81a80>
+           │       │   └ <uvicorn.server.Server object at 0x7b26fbec67d0>
+           │       └ <function run at 0x7b26fc3593a0>
+           └ <module 'asyncio' from '/usr/local/lib/python3.11/asyncio/__init__.py'>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           │      │   └ <coroutine object Server.serve at 0x7b26fbec97a0>
+           │      └ <function Runner.run at 0x7b26fc3b6f20>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+  File "/usr/local/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /usr/local/lib/python3.11/site-packages/uvicorn/server.py:81> wai...
+           │    │     └ <cyfunction Loop.run_until_complete at 0x7b26fbf01a40>
+           │    └ <uvloop.Loop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x7b26fbec6010>
+> File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+                   └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+                 │    │   │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8fab6...
+                 │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+                 │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+                 │    └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+                 └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x7b26ad066e50>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/applications.py", line 292, in __call__
+    await super().__call__(scope, receive, send)
+                           │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8fab6...
+                           │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+                           └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+  File "/usr/local/lib/python3.11/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8fab6...
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+          └ <fastapi.applications.FastAPI object at 0x7b26acea2d90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x7b26a8fb58a0>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x7b26a8f...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+          └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x7b26ac36e9d0>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5940>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a911a3d0>
+                     │    └ <function add_cors_headers at 0x7b26acf1fa60>
+                     └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+
+  File "/app/app/main.py", line 125, in add_cors_headers
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a911a3d0>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5940>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a8fb5b20>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb59e0>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+          └ <starlette.middleware.base.BaseHTTPMiddleware object at 0x7b26ac2c2f90>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+                     │    │             │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5da0>
+                     │    │             └ <starlette.requests.Request object at 0x7b26a8f524d0>
+                     │    └ <bound method RequestLoggingMiddleware.dispatch of <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>>
+                     └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+
+  File "/app/app/main.py", line 40, in dispatch
+    response = await call_next(request)
+                     │         └ <starlette.requests.Request object at 0x7b26a8f524d0>
+                     └ <function BaseHTTPMiddleware.__call__.<locals>.call_next at 0x7b26a8fb5da0>
+
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+          └ 2 validation errors for Page[InterviewOut]
+            items.0.original_filenames
+              Input should be a valid list [type=list_type, input_v...
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+          │    │   │      │                      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a8fb5f80>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+          └ <app.main.RequestLoggingMiddleware object at 0x7b26ad06a250>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+          │    │               │      │        │                     └ Headers({'host': 'localhost:8000', 'connection': 'keep-alive', 'sec-ch-ua-platform': '"Linux"', 'authorization': 'Bearer eyJh...
+          │    │               │      │        └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.send_no_error at 0x7b26a8fb5f80>
+          │    │               │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │               └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function CORSMiddleware.simple_response at 0x7b26f98fdda0>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+          │    │   │      │        └ functools.partial(<bound method CORSMiddleware.send of <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>>, ...
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x7b26ac3d9310>
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+          └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x7b26f03c5510>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <fastapi.routing.APIRouter object at 0x7b26acff8190>
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x7b26ac246650>
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+          │     │      │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │     │      │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │     └ <function Route.handle at 0x7b26f9aa40e0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ExceptionMiddleware.__call__.<locals>.sender at 0x7b26a8fb62a0>
+          │    │   │      └ <function BaseHTTPMiddleware.__call__.<locals>.call_next.<locals>.receive_or_disconnect at 0x7b26a8fb5e40>
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('172.21.0.6', 8000), 'c...
+          │    └ <function request_response.<locals>.app at 0x7b26abcb2ac0>
+          └ APIRoute(path='/api/v1/interviews/', name='list_interviews', methods=['GET'])
+  File "/usr/local/lib/python3.11/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+                     │    └ <starlette.requests.Request object at 0x7b26a8fc4650>
+                     └ <function get_request_handler.<locals>.app at 0x7b26abcb36a0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 273, in app
+    raw_response = await run_endpoint_function(
+                         └ <function run_endpoint_function at 0x7b26f9a66ac0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi/routing.py", line 190, in run_endpoint_function
+    return await dependant.call(**values)
+                 │         │      └ {'current_user': <app.models.models.User object at 0x7b26a9103c50>, 'db': <sqlalchemy.orm.session.AsyncSession object at 0x7b...
+                 │         └ <function list_interviews at 0x7b26f32a0cc0>
+                 └ <fastapi.dependencies.models.Dependant object at 0x7b26abcf4910>
+
+  File "/app/app/api/routes/interviews.py", line 60, in list_interviews
+    return await paginate(
+                 └ <function paginate at 0x7b26f17f9b20>
+
+  File "/usr/local/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             │       │      └ [<app.models.models.Interview object at 0x7b26a8f51d50>]
+             │       └ <method 'switch' of 'greenlet.greenlet' objects>
+             └ <_AsyncIoGreenlet object at 0x7b26ac084440 (otid=0x7b26fb92da70) dead>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/ext/sqlalchemy.py", line 276, in exec_pagination
+    return create_page(
+           └ <function create_page at 0x7b26f992a980>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/api.py", line 182, in create_page
+    return _page_val.get().create(items, **kwargs)
+           │         │            │        └ {'total': 1, 'params': Params(page=1, size=10)}
+           │         │            └ [<app.models.models.Interview object at 0x7b26a8f51d50>]
+           │         └ <method 'get' of '_contextvars.ContextVar' objects>
+           └ <ContextVar name='_page_val' default=<class 'fastapi_pagination.default.Page'> at 0x7b26f999a3e0>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/default.py", line 73, in create
+    return create_pydantic_model(
+           └ <function create_pydantic_model at 0x7b26f98ff420>
+  File "/usr/local/lib/python3.11/site-packages/fastapi_pagination/utils.py", line 171, in create_pydantic_model
+    return model_cls.model_validate(kwargs, from_attributes=True)
+           │         │              └ {'total': 1, 'items': [<app.models.models.Interview object at 0x7b26a8f51d50>], 'page': 1, 'size': 10, 'pages': 1}
+           │         └ <classmethod(<function BaseModel.model_validate at 0x7b26fb125d00>)>
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+  File "/usr/local/lib/python3.11/site-packages/pydantic/main.py", line 627, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           │   │                      └ <method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects>
+           │   └ SchemaValidator(title="Page[InterviewOut]", validator=Model(
+           │         ModelValidator {
+           │             revalidate: Never,
+           │             validato...
+           └ <class 'fastapi_pagination.default.Page[InterviewOut]'>
+
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for Page[InterviewOut]
+items.0.original_filenames
+  Input should be a valid list [type=list_type, input_value='["c98d4a6b-a4ab-4f05-ab77-06d38dca37b9.m4a"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+items.0.processed_filenames
+  Input should be a valid list [type=list_type, input_value='["processed_e50ff9d3-ac8...b1d9-222b45de9fd8.wav"]', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/list_type
+2025-03-20 20:07:09.415 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-20 20:07:09.415 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials
+2025-03-20 20:07:09.430 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-20 20:07:09.430 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials
+2025-03-20 20:07:09.441 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-20 20:07:09.442 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials
+2025-03-20 20:07:09.447 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-20 20:07:09.447 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials

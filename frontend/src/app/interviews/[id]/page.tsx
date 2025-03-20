@@ -69,7 +69,7 @@ export default function InterviewDetailPage() {
       console.log("Fetching interview data for ID:", id)
       
       // Get the interview data
-      const data = await api.get<InterviewType>(`/api/interviews/${id}`)
+      const data = await api.get<InterviewType>(`/interviews/${id}`)
       console.log("Received interview data:", data)
       console.log("Questionnaire relationship:", data.questionnaire ? 'Questionnaire object present' : 'No questionnaire object')
       console.log("Questionnaire ID:", data.questionnaire_id || 'None')
@@ -102,7 +102,7 @@ export default function InterviewDetailPage() {
       // Get audio URL if available - for any interview with uploaded files
       if (data.status !== InterviewStatus.CREATED) {
         try {
-          const audioData = await api.get<{audio_url: string, is_processed: boolean}>(`/api/interviews/${id}/audio`)
+          const audioData = await api.get<{audio_url: string, is_processed: boolean}>(`/interviews/${id}/audio`)
           if (audioData?.audio_url) {
             // Ensure the URL is absolute and points to the backend
             let url = audioData.audio_url;
@@ -129,7 +129,7 @@ export default function InterviewDetailPage() {
   const fetchQuestionnaires = useCallback(async () => {
     try {
       console.log("Fetching questionnaires...")
-      const data = await api.get<Array<{id: string, title: string}>>('/api/questionnaires')
+      const data = await api.get<Array<{id: string, title: string}>>('/questionnaires')
       console.log("Received questionnaires data:", data)
       if (data) {
         setQuestionnaires(data)
@@ -144,7 +144,7 @@ export default function InterviewDetailPage() {
   const startPollingProcessingStatus = useCallback((interviewId: string) => {
     const interval = setInterval(async () => {
       try {
-        const data = await api.get<InterviewType>(`/api/interviews/${interviewId}`)
+        const data = await api.get<InterviewType>(`/interviews/${interviewId}`)
         if (data.status !== InterviewStatus.PROCESSING) {
           clearInterval(interval)
           setIsProcessing(false)
@@ -164,7 +164,7 @@ export default function InterviewDetailPage() {
   const startPollingTranscriptionStatus = useCallback((interviewId: string) => {
     const interval = setInterval(async () => {
       try {
-        const data = await api.get<InterviewType>(`/api/interviews/${interviewId}`)
+        const data = await api.get<InterviewType>(`/interviews/${interviewId}`)
         if (data.status !== InterviewStatus.TRANSCRIBING) {
           clearInterval(interval)
           setIsTranscribing(false)
@@ -215,7 +215,7 @@ export default function InterviewDetailPage() {
   const processAudio = async () => {
     try {
       setIsProcessing(true)
-      await api.post(`/api/interviews/${id}/process`)
+      await api.post(`/interviews/${id}/process`)
       toast.success('Audio processing started')
       startPollingProcessingStatus(id as string)
     } catch (error) {
@@ -227,7 +227,7 @@ export default function InterviewDetailPage() {
   const transcribeAudio = async () => {
     try {
       setIsTranscribing(true)
-      await api.post(`/api/interviews/${id}/transcribe`, {
+      await api.post(`/interviews/${id}/transcribe`, {
         language: null // Auto-detect language
       })
       toast.success('Transcription started')
@@ -252,8 +252,8 @@ export default function InterviewDetailPage() {
       
       // Call the API with the questionnaire ID if specified
       const endpoint = targetId 
-        ? `/api/interviews/${id}/generate-answers?questionnaire_id=${targetId}`
-        : `/api/interviews/${id}/generate-answers`
+        ? `/interviews/${id}/generate-answers?questionnaire_id=${targetId}`
+        : `/interviews/${id}/generate-answers`
         
       await api.post(endpoint)
       
@@ -270,7 +270,7 @@ export default function InterviewDetailPage() {
           pollingAttempts++;
           console.log(`Polling attempt ${pollingAttempts}/${maxPollingAttempts}`);
           
-          const updatedData = await api.get<InterviewType>(`/api/interviews/${id}`);
+          const updatedData = await api.get<InterviewType>(`/interviews/${id}`);
           
           // Check if the generation completed
           if (updatedData) {
@@ -369,7 +369,7 @@ export default function InterviewDetailPage() {
       console.log('Attaching questionnaire:', selectedQuestionnaireId, 'to interview:', id)
       
       // Send the request
-      const response = await api.upload(`/api/interviews/${id}/attach-questionnaire`, formData)
+      const response = await api.upload(`/interviews/${id}/attach-questionnaire`, formData)
       console.log('Attach questionnaire response:', response)
       
       toast.success('Questionnaire attached successfully')
@@ -436,7 +436,7 @@ export default function InterviewDetailPage() {
     
     try {
       console.log(`Fetching details for questionnaire ID: ${questionnaireId}`);
-      const data = await api.get<{id: string, title: string, questions: string[]}>(`/api/questionnaires/${questionnaireId}`);
+      const data = await api.get<{id: string, title: string, questions: string[]}>(`/questionnaires/${questionnaireId}`);
       
       // Update the interview state with the fetched questionnaire
       setInterview(prev => {
@@ -722,7 +722,7 @@ export default function InterviewDetailPage() {
                                   console.log(`Attempting to remove questionnaire ${questionnaire.id} from interview ${id}`);
                                   
                                   // Explicitly construct the URL with query parameters
-                                  const response = await api.delete(`/api/interviews/${id}/remove-questionnaire?questionnaire_id=${questionnaire.id}`);
+                                  const response = await api.delete(`/interviews/${id}/remove-questionnaire?questionnaire_id=${questionnaire.id}`);
                                   
                                   console.log('Remove questionnaire response:', response);
                                   toast.success('Questionnaire removed successfully');
@@ -811,7 +811,7 @@ export default function InterviewDetailPage() {
                                 console.log(`Attempting to remove questionnaire ${interview.questionnaire.id} from interview ${id}`);
                                 
                                 // Explicitly construct the URL with query parameters
-                                const response = await api.delete(`/api/interviews/${id}/remove-questionnaire?questionnaire_id=${interview.questionnaire.id}`);
+                                const response = await api.delete(`/interviews/${id}/remove-questionnaire?questionnaire_id=${interview.questionnaire.id}`);
                                 
                                 console.log('Remove questionnaire response:', response);
                                 toast.success('Questionnaire removed successfully');

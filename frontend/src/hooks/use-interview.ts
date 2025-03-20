@@ -22,7 +22,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
 
     try {
       setIsLoading(true)
-      const data = await api.get<Interview>(`/api/interviews/${interviewId}`)
+      const data = await api.get<Interview>(`/interviews/${interviewId}`)
       setInterview(data)
       
       // Check if currently processing or transcribing
@@ -49,7 +49,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
   const createInterview = useCallback(async (data: any) => {
     try {
       setIsLoading(true)
-      const response = await api.post<Interview>('/api/interviews', data)
+      const response = await api.post<Interview>('/interviews', data)
       return response
     } catch (error: any) {
       setError(error)

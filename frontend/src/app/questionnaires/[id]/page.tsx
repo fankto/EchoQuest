@@ -71,7 +71,7 @@ export default function QuestionnairePage() {
     const fetchQuestionnaire = async () => {
       try {
         setIsLoading(true)
-        const data = await api.get<Questionnaire>(`/api/questionnaires/${id}`)
+        const data = await api.get<Questionnaire>(`/questionnaires/${id}`)
         setQuestionnaire(data)
       } catch (error) {
         toast.error('Failed to fetch questionnaire')
@@ -88,7 +88,7 @@ export default function QuestionnairePage() {
 
     try {
       setIsLoadingInterviews(true)
-      const data = await api.get<Array<{id: string, title: string, interviewee_name: string, date: string}>>(`/api/interviews/by-questionnaire/${id}`)
+      const data = await api.get<Array<{id: string, title: string, interviewee_name: string, date: string}>>(`/interviews/by-questionnaire/${id}`)
       if (data) {
         setRelatedInterviews(data)
       }
@@ -108,7 +108,7 @@ export default function QuestionnairePage() {
   const handleDelete = async () => {
     try {
       setIsDeleting(true)
-      await api.delete(`/api/questionnaires/${id}`)
+      await api.delete(`/questionnaires/${id}`)
       toast.success('Questionnaire deleted successfully')
       router.push('/questionnaires')
     } catch (error) {
@@ -124,7 +124,7 @@ export default function QuestionnairePage() {
     try {
       setIsLinkingInterview(false)
       console.log('Fetching available interviews...')
-      const response = await api.get<PaginatedResponse<Interview>>('/api/interviews')
+      const response = await api.get<PaginatedResponse<Interview>>('/interviews')
       console.log('Received interviews data:', response)
       
       if (response?.items) {

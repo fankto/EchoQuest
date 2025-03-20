@@ -26,7 +26,7 @@ export function RecentInterviews() {
     const fetchInterviews = async () => {
       try {
         setIsLoading(true)
-        const response = await api.get<PaginatedResponse<Interview>>('/api/interviews?limit=5')
+        const response = await api.get<PaginatedResponse<Interview>>('/interviews?limit=5')
         setInterviews(response.items || [])
       } catch (error) {
         console.error('Failed to fetch interviews:', error)

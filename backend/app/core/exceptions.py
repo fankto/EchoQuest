@@ -87,6 +87,17 @@ class ExternalServiceError(BaseAPIException):
         )
 
 
+class ExternalAPIError(BaseAPIException):
+    """Exception for external API errors"""
+
+    def __init__(self, detail: str = "External API error"):
+        super().__init__(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=detail,
+            code="external_api_error",
+        )
+
+
 class DatabaseError(BaseAPIException):
     """Exception for database errors"""
 

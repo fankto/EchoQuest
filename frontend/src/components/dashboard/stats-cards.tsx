@@ -65,15 +65,15 @@ export function StatsCards() {
         setError(null)
 
         // Fetch interviews with pagination
-        const interviewsResponse = await api.get<ApiResponse<Interview>>('/api/interviews')
+        const interviewsResponse = await api.get<ApiResponse<Interview>>('/interviews')
         const interviews = interviewsResponse.items || []
 
         // Fetch questionnaires (non-paginated)
-        const questionnairesResponse = await api.get<Questionnaire[]>('/api/questionnaires')
+        const questionnairesResponse = await api.get<Questionnaire[]>('/questionnaires')
         const questionnaires = questionnairesResponse || []
 
         // Fetch user info
-        const userResponse = await api.get<UserResponse>('/api/auth/me')
+        const userResponse = await api.get<UserResponse>('/auth/me')
         const user = userResponse
 
         // Calculate interviews this month

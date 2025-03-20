@@ -51,7 +51,7 @@ export default function QuestionnairesPage() {
   const fetchQuestionnaires = useCallback(async () => {
     try {
       setIsLoading(true)
-      const data = await api.get<Questionnaire[]>('/api/questionnaires')
+      const data = await api.get<Questionnaire[]>('/questionnaires')
       setQuestionnaires(data)
     } catch (error) {
       toast.error('Failed to fetch questionnaires')
@@ -69,7 +69,7 @@ export default function QuestionnairesPage() {
 
     try {
       setIsDeleting(true)
-      await api.delete(`/api/questionnaires/${deleteTarget}`)
+      await api.delete(`/questionnaires/${deleteTarget}`)
       toast.success('Questionnaire deleted successfully')
       
       // Remove the deleted questionnaire from the state
