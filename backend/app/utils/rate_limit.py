@@ -2,11 +2,10 @@ import time
 from typing import Dict, Tuple
 import asyncio
 
-from fastapi import HTTPException, status
 from loguru import logger
 
 from app.core.config import settings
-from app.utils.exceptions import RateLimitError
+from app.core.exceptions import RateLimitExceeded
 
 
 class RateLimiter:
@@ -28,7 +27,7 @@ class RateLimiter:
             token: JWT token or other identifier
 
         Raises:
-            RateLimitError: If rate limit exceeded
+            RateLimitExceeded: If rate limit exceeded
         """
         if not settings.RATE_LIMIT_ENABLED:
             return
@@ -51,13 +50,24 @@ class RateLimiter:
                 # Calculate retry after header value
                 retry_after = int(settings.RATE_LIMIT_DEFAULT_PERIOD - time_passed) + 1
                 logger.warning(f"Rate limit exceeded for token {token[:10]}..., retry after {retry_after}s")
-                raise RateLimitError(
-                    detail="Rate limit exceeded",
+                raise RateLimitExceeded(
+                    detail=f"Rate limit exceeded. Try again in {retry_after} seconds.",
                     retry_after=retry_after
                 )
 
             # Decrement remaining tokens
             self.tokens[token] = (remaining - 1, last_reset)
+
+    async def reset_limit(self, token: str) -> None:
+        """
+        Reset rate limit for a token
+
+        Args:
+            token: Token to reset
+        """
+        async with self.lock:
+            now = time.time()
+            self.tokens[token] = (settings.RATE_LIMIT_DEFAULT_LIMIT, now)
 
 
 # Create singleton instance

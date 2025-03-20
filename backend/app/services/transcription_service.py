@@ -1,9 +1,10 @@
 import asyncio
-import json
 import os
+from pathlib import Path
 import uuid
 from typing import Dict, List, Optional, Tuple, Any
 import time
+import tempfile
 
 import ffmpeg
 import httpx
@@ -13,10 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.core.config import settings
+from app.core.exceptions import TranscriptionError, AudioProcessingError, ExternalServiceError
 from app.crud.crud_interview import interview_crud
 from app.models.models import Interview, InterviewStatus
 from app.services.qdrant_service import QdrantService
-from app.utils.exceptions import TranscriptionError, AudioProcessingError
 
 
 class TranscriptionService:
@@ -26,6 +27,9 @@ class TranscriptionService:
         self.qdrant_service = QdrantService()
         self.chunk_size = settings.AUDIO_CHUNK_SIZE
         self.chunk_duration = settings.AUDIO_CHUNK_DURATION
+        # Ensure directories exist
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+        os.makedirs(settings.PROCESSED_DIR, exist_ok=True)
         logger.info("Transcription service initialized")
 
     async def process_audio(self, interview_id: str, db: AsyncSession) -> None:
@@ -35,12 +39,15 @@ class TranscriptionService:
         Args:
             interview_id: ID of the interview
             db: Database session
+
+        Raises:
+            AudioProcessingError: If there's an error processing the audio
         """
         try:
             # Get interview
             interview = await interview_crud.get(db, id=interview_id)
             if not interview:
-                raise ValueError(f"Interview {interview_id} not found")
+                raise AudioProcessingError(f"Interview {interview_id} not found")
 
             # Update status
             interview.status = InterviewStatus.PROCESSING
@@ -56,9 +63,9 @@ class TranscriptionService:
             # Process each file
             for filename in original_filenames:
                 # Source and destination paths
-                source_path = os.path.join(settings.UPLOAD_DIR, filename)
+                source_path = Path(settings.UPLOAD_DIR) / filename
                 processed_filename = f"processed_{uuid.uuid4()}.wav"
-                dest_path = os.path.join(settings.PROCESSED_DIR, processed_filename)
+                dest_path = Path(settings.PROCESSED_DIR) / processed_filename
 
                 # Process the audio file
                 await self._optimize_audio(source_path, dest_path)
@@ -85,36 +92,46 @@ class TranscriptionService:
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type(ffmpeg.Error)
     )
-    async def _optimize_audio(self, input_path: str, output_path: str) -> None:
+    async def _optimize_audio(self, input_path: Path, output_path: Path) -> None:
         """
         Optimize audio file for transcription
 
         Args:
             input_path: Path to input audio file
             output_path: Path to output audio file
+
+        Raises:
+            AudioProcessingError: If there's an error optimizing the audio
         """
         try:
             # Ensure output directory exists
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use ffmpeg-python to process audio asynchronously
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                lambda: (
-                    ffmpeg
-                    .input(input_path)
-                    .filter('volume', 2.0)  # Double the volume
-                    .output(
-                        output_path,
-                        ar=48000,  # Set sample rate to 48kHz
-                        ac=1,  # Convert to mono
-                        acodec='pcm_s16le',  # 16-bit PCM
+            # Use a temporary file first to avoid incomplete files
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+                temp_path = temp_file.name
+
+                # Use ffmpeg-python to process audio asynchronously
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(
+                    None,
+                    lambda: (
+                        ffmpeg
+                        .input(str(input_path))
+                        .filter('volume', 2.0)  # Double the volume
+                        .output(
+                            temp_path,
+                            ar=48000,  # Set sample rate to 48kHz
+                            ac=1,  # Convert to mono
+                            acodec='pcm_s16le',  # 16-bit PCM
+                        )
+                        .overwrite_output()
+                        .run(quiet=False, capture_stdout=True, capture_stderr=True)
                     )
-                    .overwrite_output()
-                    .run(quiet=False, capture_stdout=True, capture_stderr=True)
                 )
-            )
+
+                # Move the temp file to the final destination
+                os.replace(temp_path, output_path)
 
             logger.info(f"Audio optimized: {input_path} -> {output_path}")
         except ffmpeg.Error as e:
@@ -133,12 +150,15 @@ class TranscriptionService:
         Args:
             interview_id: ID of the interview
             db: Database session
+
+        Raises:
+            TranscriptionError: If there's an error transcribing the audio
         """
         try:
             # Get interview
             interview = await interview_crud.get(db, id=interview_id)
             if not interview:
-                raise ValueError(f"Interview {interview_id} not found")
+                raise TranscriptionError(f"Interview {interview_id} not found")
 
             # Update status
             interview.status = InterviewStatus.TRANSCRIBING
@@ -161,10 +181,10 @@ class TranscriptionService:
             total_duration = 0
 
             for filename in processed_filenames:
-                file_path = os.path.join(settings.PROCESSED_DIR, filename)
+                file_path = Path(settings.PROCESSED_DIR) / filename
 
                 # Check file size before processing
-                file_size = os.path.getsize(file_path)
+                file_size = file_path.stat().st_size
                 if file_size > self.chunk_size:
                     logger.info(f"File too large ({file_size} bytes), splitting into chunks")
                     segments, duration = await self._process_large_file(
@@ -217,7 +237,7 @@ class TranscriptionService:
 
     async def _process_large_file(
             self,
-            file_path: str,
+            file_path: Path,
             language: Optional[str],
             speakers_count: int
     ) -> Tuple[List[Dict[str, Any]], float]:
@@ -231,11 +251,14 @@ class TranscriptionService:
 
         Returns:
             Tuple of (transcript segments, duration in seconds)
+
+        Raises:
+            TranscriptionError: If there's an error processing the large file
         """
         try:
             # Create temporary directory for chunks
-            chunks_dir = os.path.join(os.path.dirname(file_path), "chunks")
-            os.makedirs(chunks_dir, exist_ok=True)
+            chunks_dir = Path(file_path.parent) / "chunks"
+            chunks_dir.mkdir(exist_ok=True)
 
             try:
                 # Split audio into chunks
@@ -261,19 +284,19 @@ class TranscriptionService:
                     current_time += chunk_duration
 
                     # Clean up chunk file
-                    os.remove(chunk_path)
+                    chunk_path.unlink(missing_ok=True)
 
                 # Clean up chunks directory
-                os.rmdir(chunks_dir)
+                chunks_dir.rmdir()
 
                 return all_segments, current_time
 
             except Exception as e:
                 # Clean up chunks directory in case of error
-                if os.path.exists(chunks_dir):
-                    for chunk_file in os.listdir(chunks_dir):
-                        os.remove(os.path.join(chunks_dir, chunk_file))
-                    os.rmdir(chunks_dir)
+                if chunks_dir.exists():
+                    for chunk_file in chunks_dir.iterdir():
+                        chunk_file.unlink(missing_ok=True)
+                    chunks_dir.rmdir()
                 raise e
 
         except Exception as e:
@@ -287,7 +310,7 @@ class TranscriptionService:
     )
     async def _transcribe_chunk(
             self,
-            file_path: str,
+            file_path: Path,
             language: Optional[str],
             start_time: float,
             chunk_index: int,
@@ -305,10 +328,13 @@ class TranscriptionService:
 
         Returns:
             Tuple of (transcript segments, duration in seconds)
+
+        Raises:
+            TranscriptionError: If there's an error transcribing the chunk
         """
         try:
             # Get audio duration
-            audio = AudioSegment.from_file(file_path)
+            audio = AudioSegment.from_file(str(file_path))
             duration = len(audio) / 1000  # Convert to seconds
 
             # Transcribe with Whisper
@@ -394,7 +420,7 @@ class TranscriptionService:
         seconds = int(seconds % 60)
         return f"{minutes:02d}:{seconds:02d}"
 
-    async def _split_audio_into_chunks(self, input_path: str, output_dir: str) -> List[str]:
+    async def _split_audio_into_chunks(self, input_path: Path, output_dir: Path) -> List[Path]:
         """
         Split audio file into chunks of specified duration
 
@@ -404,13 +430,16 @@ class TranscriptionService:
 
         Returns:
             List of chunk file paths
+
+        Raises:
+            AudioProcessingError: If there's an error splitting the audio
         """
         try:
             # Ensure output directory exists
-            os.makedirs(output_dir, exist_ok=True)
+            output_dir.mkdir(parents=True, exist_ok=True)
 
             # Load audio file
-            audio = AudioSegment.from_file(input_path)
+            audio = AudioSegment.from_file(str(input_path))
             duration = len(audio) / 1000  # Convert to seconds
 
             # Calculate number of chunks needed
@@ -431,11 +460,11 @@ class TranscriptionService:
 
                 # Generate chunk filename
                 chunk_filename = f"chunk_{uuid.uuid4()}.wav"
-                chunk_path = os.path.join(output_dir, chunk_filename)
+                chunk_path = output_dir / chunk_filename
 
                 # Export chunk with high quality settings
                 chunk.export(
-                    chunk_path,
+                    str(chunk_path),
                     format="wav",
                     parameters=[
                         "-ar", "48000",  # Sample rate
@@ -445,7 +474,7 @@ class TranscriptionService:
                 )
 
                 # Log chunk size
-                chunk_size = os.path.getsize(chunk_path)
+                chunk_size = chunk_path.stat().st_size
                 logger.info(
                     f"Created chunk {i + 1}/{num_chunks}: {chunk_path} (size: {chunk_size / 1024 / 1024:.2f}MB)")
 
@@ -462,7 +491,7 @@ class TranscriptionService:
         wait=wait_exponential(multiplier=settings.OPENAI_RETRY_DELAY, min=1, max=60),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException))
     )
-    async def _transcribe_with_whisper(self, file_path: str, language: Optional[str] = None) -> Dict:
+    async def _transcribe_with_whisper(self, file_path: Path, language: Optional[str] = None) -> Dict:
         """
         Transcribe audio using OpenAI's Whisper API
 
@@ -472,6 +501,10 @@ class TranscriptionService:
 
         Returns:
             Transcription result
+
+        Raises:
+            TranscriptionError: If there's an error with the Whisper service
+            ExternalServiceError: If there's an error with the OpenAI API
         """
         logger.info(f"Transcribing with Whisper: {file_path}")
 
@@ -489,7 +522,7 @@ class TranscriptionService:
         try:
             # Create a form with the audio data
             files = {
-                "file": (os.path.basename(file_path), data),
+                "file": (file_path.name, data),
                 "model": (None, "whisper-1"),
                 "response_format": (None, "verbose_json"),
             }
@@ -507,14 +540,24 @@ class TranscriptionService:
                 )
 
                 if response.status_code != 200:
-                    error_message = f"Error transcribing with Whisper: Status code {response.status_code}, Response: {response.text}"
-                    logger.error(error_message)
-                    raise TranscriptionError(error_message)
+                    error_detail = response.text
+                    # Avoid exposing potentially sensitive error details in prod
+                    if settings.ENVIRONMENT == "production":
+                        error_detail = f"Error code: {response.status_code}"
+
+                    raise ExternalServiceError(
+                        "OpenAI Whisper",
+                        f"Transcription failed with status {response.status_code}"
+                    )
 
                 result = response.json()
                 logger.info(f"Whisper transcription completed successfully, length: {len(result.get('text', ''))}")
                 return result
 
+        except httpx.HTTPError as e:
+            error_message = f"HTTP error with Whisper API: {str(e)}"
+            logger.error(error_message)
+            raise ExternalServiceError("OpenAI Whisper", "Connection error")
         except Exception as e:
             error_message = f"Error transcribing with Whisper: {str(e)}"
             logger.error(error_message)

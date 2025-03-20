@@ -1,6 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 import time
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import api_router
 from app.core.config import settings
-from app.core.exceptions import BaseAPIException, RateLimitError
+from app.core.exceptions import BaseAPIException, RateLimitExceeded
 from app.db.init_db import init_db
 from app.db.session import engine
 from app.services.qdrant_service import QdrantService
@@ -64,8 +65,8 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Create upload directories if they don't exist
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    os.makedirs(settings.PROCESSED_DIR, exist_ok=True)
+    Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    Path(settings.PROCESSED_DIR).mkdir(parents=True, exist_ok=True)
 
     # Initialize database
     await init_db()
@@ -140,16 +141,17 @@ async def api_exception_handler(request: Request, exc: BaseAPIException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail, "code": exc.code},
+        headers=exc.headers or {},
     )
 
 
-@app.exception_handler(RateLimitError)
-async def rate_limit_exception_handler(request: Request, exc: RateLimitError):
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):
     """Handle rate limit exceptions"""
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail, "code": exc.code},
-        headers=exc.headers,
+        headers=exc.headers or {},
     )
 
 
