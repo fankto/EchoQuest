@@ -13727,3 +13727,7 @@ Traceback (most recent call last):
 fastapi.exceptions.ResponseValidationError: 1 validation errors:
   {'type': 'get_attribute_error', 'loc': ('response', 'questionnaires'), 'msg': "Error extracting attribute: MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)", 'input': <app.models.models.Interview object at 0x7996df03f050>, 'ctx': {'error': "MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here. Was IO attempted in an unexpected place? (Background on this error at: https://sqlalche.me/e/20/xd2s)"}, 'url': 'https://errors.pydantic.dev/2.10/v/get_attribute_error'}
 
+2025-03-21 16:43:03.419 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-21 16:43:03.419 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials
+2025-03-21 16:43:03.422 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-21 16:43:03.422 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials

@@ -5,6 +5,8 @@ from contextlib import contextmanager
 from fastapi import Depends, HTTPException, status, Path
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.exceptions import (
@@ -141,7 +143,14 @@ async def validate_interview_ownership(
         ResourceNotFoundError: If interview doesn't exist
         AuthorizationError: If user doesn't have access
     """
-    interview = await interview_crud.get(db, id=interview_id)
+    # Use a join to eagerly load questionnaires to avoid the MissingGreenlet error
+    stmt = select(Interview).options(
+        selectinload(Interview.questionnaires)
+    ).where(Interview.id == interview_id)
+    
+    result = await db.execute(stmt)
+    interview = result.scalars().first()
+    
     if not interview:
         raise ResourceNotFoundError("Interview", str(interview_id))
 
