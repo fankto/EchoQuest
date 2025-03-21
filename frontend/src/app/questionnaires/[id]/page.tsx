@@ -159,7 +159,7 @@ export default function QuestionnairePage() {
       const formData = new FormData()
       formData.append('questionnaire_id', id as string)
       
-      await api.upload(`/api/interviews/${selectedInterviewId}/attach-questionnaire`, formData)
+      await api.upload(`/interviews/${selectedInterviewId}/attach-questionnaire`, formData)
       toast.success('Interview linked successfully')
       
       await fetchRelatedInterviews()

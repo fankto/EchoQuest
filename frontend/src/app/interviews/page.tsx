@@ -61,7 +61,7 @@ export default function InterviewsPage() {
       setIsDeleting(true);
       
       // Make the delete request
-      const response = await api.delete(`/api/interviews/${id}`);
+      const response = await api.delete(`/interviews/${id}`);
       console.log('Delete interview response:', response);
       
       toast.success('Interview deleted successfully');

@@ -29,10 +29,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUser = useCallback(async () => {
     try {
       setIsLoading(true)
+      console.log('Attempting to fetch user data...')
       const userData = await api.get<User>('/auth/me')
+      console.log('User data fetched successfully:', userData)
       setUser(userData)
       return userData
     } catch (error) {
+      console.error('Error fetching user data:', error)
       setUser(null)
       return null
     } finally {
