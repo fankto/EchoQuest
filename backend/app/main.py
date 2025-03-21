@@ -115,8 +115,45 @@ app.add_middleware(RequestLoggingMiddleware)
 add_pagination(app)
 
 # Mount static directories for media files
-app.mount("/api/media/uploads", StaticFiles(directory=settings.UPLOAD_DIR, html=True), name="uploads")
-app.mount("/api/media/processed", StaticFiles(directory=settings.PROCESSED_DIR, html=True), name="processed")
+from starlette.staticfiles import StaticFiles
+from starlette.responses import FileResponse
+from starlette.requests import Request
+
+class CORSStaticFiles(StaticFiles):
+    """StaticFiles with CORS headers"""
+    async def __call__(self, scope, receive, send):
+        """Add CORS headers to static files"""
+        if scope["type"] == "http":
+            response_started = False
+            
+            # Define the CORS headers
+            cors_headers = {
+                "Access-Control-Allow-Origin": "*",  # Allow any origin
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                "Access-Control-Max-Age": "600",  # 10 minutes
+            }
+            
+            # Modify the send function to inject CORS headers
+            async def cors_send(message):
+                nonlocal response_started
+                if message["type"] == "http.response.start":
+                    # Add the CORS headers to the response
+                    message.setdefault("headers", [])
+                    for key, value in cors_headers.items():
+                        message["headers"].append(
+                            (key.encode("latin-1"), value.encode("latin-1"))
+                        )
+                    response_started = True
+                await send(message)
+            
+            await super().__call__(scope, receive, cors_send)
+        else:
+            await super().__call__(scope, receive, send)
+
+# Use the custom static files handler with CORS headers
+app.mount("/api/media/uploads", CORSStaticFiles(directory=settings.UPLOAD_DIR, html=True), name="uploads")
+app.mount("/api/media/processed", CORSStaticFiles(directory=settings.PROCESSED_DIR, html=True), name="processed")
 
 # Include API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
