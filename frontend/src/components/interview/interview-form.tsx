@@ -63,7 +63,7 @@ export function InterviewForm() {
   useEffect(() => {
     const fetchQuestionnaires = async () => {
       try {
-        const data = await api.get<Questionnaire[]>('/api/questionnaires')
+        const data = await api.get<Questionnaire[]>('/questionnaires')
         setQuestionnaires(data)
       } catch (error) {
         console.error('Failed to load questionnaires:', error)

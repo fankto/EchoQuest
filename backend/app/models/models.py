@@ -68,6 +68,8 @@ class JsonMixin:
         """Serialize Python object to JSON string"""
         if value is None:
             return None
+        if isinstance(value, str):
+            return value
         return json.dumps(value)
 
 
@@ -237,7 +239,12 @@ class Interview(Base, JsonMixin):
 
     def get_original_filenames(self) -> List[str]:
         """Get original filenames as a list"""
-        return self.parse_json(self.original_filenames) or []
+        value = self.parse_json(self.original_filenames)
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        return []
 
     def set_original_filenames(self, filenames: List[str]) -> None:
         """Set original filenames from a list"""
@@ -245,7 +252,12 @@ class Interview(Base, JsonMixin):
 
     def get_processed_filenames(self) -> List[str]:
         """Get processed filenames as a list"""
-        return self.parse_json(self.processed_filenames) or []
+        value = self.parse_json(self.processed_filenames)
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        return []
 
     def set_processed_filenames(self, filenames: List[str]) -> None:
         """Set processed filenames from a list"""
@@ -253,7 +265,12 @@ class Interview(Base, JsonMixin):
 
     def get_transcript_segments(self) -> List[Dict[str, Any]]:
         """Get transcript segments as a list of dictionaries"""
-        return self.parse_json(self.transcript_segments) or []
+        value = self.parse_json(self.transcript_segments)
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        return []
 
     def set_transcript_segments(self, segments: List[Dict[str, Any]]) -> None:
         """Set transcript segments from a list of dictionaries"""
@@ -261,7 +278,12 @@ class Interview(Base, JsonMixin):
 
     def get_generated_answers(self) -> Dict[str, Dict[str, str]]:
         """Get generated answers as a dictionary"""
-        return self.parse_json(self.generated_answers) or {}
+        value = self.parse_json(self.generated_answers)
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return value
+        return {}
 
     def set_generated_answers(self, answers: Dict[str, Dict[str, str]]) -> None:
         """Set generated answers from a dictionary"""

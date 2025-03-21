@@ -40,7 +40,7 @@ export default function InterviewsPage() {
   const fetchInterviews = useCallback(async () => {
     try {
       setIsLoading(true)
-      const data = await api.get<{items: Interview[]}>('/api/interviews/')
+      const data = await api.get<{items: Interview[]}>('/interviews/')
       setInterviews(data.items || [])
     } catch (error) {
       toast.error('Failed to fetch interviews')
