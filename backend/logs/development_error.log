@@ -8974,3 +8974,7 @@ fastapi.exceptions.ResponseValidationError: 1 validation errors:
 2025-03-21 10:17:37.007 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: User not found
 2025-03-21 10:17:37.018 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: User not found
 2025-03-21 10:17:37.027 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: User not found
+2025-03-21 11:31:12.153 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-21 11:31:12.153 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials
+2025-03-21 11:31:12.155 | ERROR    | app.services.token_service:decode_token:124 | Error decoding token: Signature has expired.
+2025-03-21 11:31:12.155 | ERROR    | app.services.token_service:get_current_user:167 | Error validating token: Could not validate credentials

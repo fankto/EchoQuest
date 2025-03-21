@@ -72,7 +72,7 @@ export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: Question
       if (values.content.length >= 50) {
         setIsExtracting(true)
         try {
-          const response = await api.post<QuestionnaireResponse>('/api/questionnaires/extract-questions', {
+          const response = await api.post<QuestionnaireResponse>('/questionnaires/extract-questions', {
             content: values.content
           })
           if (response.questions) {
@@ -99,7 +99,7 @@ export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: Question
       
       if (initialData?.id) {
         // Update existing
-        const response = await api.upload<QuestionnaireResponse>(`/api/questionnaires/${initialData.id}`, formData, undefined, 'patch')
+        const response = await api.upload<QuestionnaireResponse>(`/questionnaires/${initialData.id}`, formData, undefined, 'patch')
         toast.success('Questionnaire updated successfully')
         // Update local state with the response
         setQuestions(response.questions)
@@ -109,7 +109,7 @@ export function QuestionnaireForm({ initialData, onSuccess, onUpdate }: Question
         router.push(`/questionnaires/${initialData.id}`)
       } else {
         // Create new
-        const response = await api.upload<QuestionnaireResponse>('/api/questionnaires', formData)
+        const response = await api.upload<QuestionnaireResponse>('/questionnaires', formData)
         toast.success('Questionnaire created successfully')
         router.push(`/questionnaires/${response.id}`)
       }
