@@ -88,9 +88,9 @@ export default function QuestionnairePage() {
 
     try {
       setIsLoadingInterviews(true)
-      const data = await api.get<Array<{id: string, title: string, interviewee_name: string, date: string}>>(`/interviews/by-questionnaire/${id}`)
-      if (data) {
-        setRelatedInterviews(data)
+      const data = await api.get<PaginatedResponse<Interview>>(`/interviews/questionnaires/${id}/interviews`)
+      if (data?.items) {
+        setRelatedInterviews(data.items)
       }
     } catch (error) {
       console.error('Failed to fetch related interviews:', error)
