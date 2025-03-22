@@ -10,3 +10,4 @@ extract_code.sh
 setup-echoquest.sh
 data/
 *.pyc
+backend/logs/
