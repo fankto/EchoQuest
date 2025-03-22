@@ -26,7 +26,7 @@ export function RecentQuestionnaires() {
     const fetchQuestionnaires = async () => {
       try {
         setIsLoading(true)
-        const response = await api.get<Questionnaire[]>('/api/questionnaires?limit=5')
+        const response = await api.get<Questionnaire[]>('/questionnaires?limit=5')
         setQuestionnaires(response || [])
       } catch (error) {
         console.error('Failed to fetch questionnaires:', error)

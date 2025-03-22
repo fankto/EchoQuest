@@ -33,7 +33,7 @@ export function CreditSummary() {
     const fetchCredits = async () => {
       try {
         setIsLoading(true)
-        const response = await api.get<UserResponse>('/api/auth/me')
+        const response = await api.get<UserResponse>('/auth/me')
         setCredits({
           available_interview_credits: response.available_interview_credits,
           available_chat_tokens: response.available_chat_tokens

@@ -1,8 +1,10 @@
-import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
+from app.schemas.base import IdentifiedBase
 
 
 class QuestionnaireBase(BaseModel):
@@ -24,19 +26,20 @@ class QuestionnairePatch(BaseModel):
     content: Optional[str] = None
     questions: Optional[List[str]] = None
 
+    model_config = ConfigDict(extra="ignore")
 
-class QuestionnaireOut(QuestionnaireBase):
+
+class QuestionnaireOut(QuestionnaireBase, IdentifiedBase):
     """Questionnaire output schema"""
-    id: uuid.UUID
-    created_at: datetime
-    updated_at: Optional[datetime] = None
     questions: List[str]
-    creator_id: uuid.UUID
-    organization_id: Optional[uuid.UUID] = None
+    creator_id: UUID
+    organization_id: Optional[UUID] = None
     interview_count: Optional[int] = Field(0, description="Number of interviews using this questionnaire")
 
-    class Config:
-        from_attributes = True
+
+class QuestionnaireWithInterviews(QuestionnaireOut):
+    """Questionnaire with associated interviews"""
+    interviews: List[Dict[str, Any]] = []
 
 
 class QuestionExtractionRequest(BaseModel):

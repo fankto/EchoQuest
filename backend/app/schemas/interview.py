@@ -1,11 +1,12 @@
-import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
+from uuid import UUID
 import json
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 
 from app.models.models import InterviewStatus
+from app.schemas.base import IdentifiedBase
 
 
 class TranscriptSegment(BaseModel):
@@ -14,6 +15,7 @@ class TranscriptSegment(BaseModel):
     start_time: float
     end_time: float
     speaker: str = "Speaker"
+    words: List[Dict[str, Any]] = []
 
 
 class InterviewBase(BaseModel):
@@ -27,7 +29,7 @@ class InterviewBase(BaseModel):
 
 class InterviewCreate(InterviewBase):
     """Interview creation schema"""
-    questionnaire_id: Optional[uuid.UUID] = None
+    questionnaire_id: Optional[UUID] = None
 
 
 class InterviewPatch(BaseModel):
@@ -37,43 +39,38 @@ class InterviewPatch(BaseModel):
     date: Optional[datetime] = None
     location: Optional[str] = None
     notes: Optional[str] = None
-    questionnaire_id: Optional[uuid.UUID] = None
+
+    model_config = ConfigDict(extra="ignore")
 
 
-class InterviewOut(InterviewBase):
+class InterviewOut(InterviewBase, IdentifiedBase):
     """Interview output schema"""
-    id: uuid.UUID
     status: InterviewStatus
-    created_at: datetime
-    updated_at: Optional[datetime] = None
     duration: Optional[float] = None
     error_message: Optional[str] = None
     original_filenames: Optional[List[str]] = None
     processed_filenames: Optional[List[str]] = None
-    questionnaire_id: Optional[uuid.UUID] = None
-    owner_id: uuid.UUID
-    organization_id: Optional[uuid.UUID] = None
+    owner_id: UUID
+    organization_id: Optional[UUID] = None
     remaining_chat_tokens: Optional[int] = None
-    
-    class Config:
-        from_attributes = True
-        
-    @field_validator('original_filenames', 'processed_filenames', mode='before')
-    @classmethod
-    def parse_json_list(cls, value):
-        """Parse JSON strings to lists"""
-        if value is None:
-            return None
-        if isinstance(value, list):
-            return value
-        if isinstance(value, str):
+
+    @validator('original_filenames', pre=True)
+    def parse_original_filenames(cls, v):
+        if isinstance(v, str):
             try:
-                parsed = json.loads(value)
-                if isinstance(parsed, list):
-                    return parsed
-            except (json.JSONDecodeError, TypeError):
-                pass
-        return None
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        return v
+
+    @validator('processed_filenames', pre=True)
+    def parse_processed_filenames(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return []
+        return v
 
 
 class InterviewDetailOut(InterviewOut):
@@ -81,57 +78,19 @@ class InterviewDetailOut(InterviewOut):
     transcription: Optional[str] = None
     transcript_segments: Optional[List[TranscriptSegment]] = None
     generated_answers: Optional[Dict[str, Dict[str, str]]] = None
-    
-    class Config:
-        from_attributes = True
-        
-    @field_validator('transcript_segments', mode='before')
-    @classmethod
-    def parse_transcript_segments(cls, value):
-        """Parse JSON transcript segments to list"""
-        if value is None:
-            return None
-        if isinstance(value, list):
-            return value
-        if isinstance(value, str):
-            try:
-                parsed = json.loads(value)
-                if isinstance(parsed, list):
-                    return parsed
-            except (json.JSONDecodeError, TypeError):
-                pass
-        return None
-        
-    @field_validator('generated_answers', mode='before')
-    @classmethod
-    def parse_generated_answers(cls, value):
-        """Parse JSON generated answers to dict"""
-        if value is None:
-            return None
-        if isinstance(value, dict):
-            return value
-        if isinstance(value, str):
-            try:
-                parsed = json.loads(value)
-                if isinstance(parsed, dict):
-                    return parsed
-            except (json.JSONDecodeError, TypeError):
-                pass
-        return None
+    questionnaires: Optional[List[Dict[str, Any]]] = None
 
 
 class InterviewWithQuestionnaire(InterviewOut):
     """Interview output schema with questionnaire"""
     questionnaire: Optional[Dict[str, Any]] = None
-    
-    class Config:
-        from_attributes = True
 
 
 class InterviewTaskResponse(BaseModel):
     """Response for interview processing tasks"""
     status: str
     message: str
+    task_id: Optional[str] = None
 
 
 class TranscriptUpdateRequest(BaseModel):
@@ -142,3 +101,10 @@ class TranscriptUpdateRequest(BaseModel):
 class TranscriptSegmentsUpdateRequest(BaseModel):
     """Request schema for updating transcript segments"""
     segments: List[TranscriptSegment]
+
+
+class AudioUrlResponse(BaseModel):
+    """Response schema for audio URL"""
+    audio_url: str
+    is_processed: bool
+    duration: Optional[float] = None

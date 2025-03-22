@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback, createContext, useContext } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/api-client'
-import { User } from '@/types/auth'
+import type { User } from '@/types/auth'
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: () => Promise<void>
+  login: () => Promise<User | null>
   logout: () => void
-  refreshUser: () => Promise<void>
+  refreshUser: () => Promise<User | null>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,10 +29,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUser = useCallback(async () => {
     try {
       setIsLoading(true)
-      const userData = await api.get<User>('/api/auth/me')
+      console.log('Attempting to fetch user data...')
+      const userData = await api.get<User>('/auth/me')
+      console.log('User data fetched successfully:', userData)
       setUser(userData)
       return userData
     } catch (error) {
+      console.error('Error fetching user data:', error)
       setUser(null)
       return null
     } finally {
@@ -41,7 +44,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [])
 
   const login = useCallback(async () => {
-    await fetchUser()
+    return await fetchUser()
   }, [fetchUser])
 
   const logout = useCallback(() => {

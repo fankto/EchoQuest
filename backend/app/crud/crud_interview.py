@@ -26,7 +26,6 @@ class CRUDInterview(CRUDBase[Interview, InterviewCreate, InterviewPatch]):
             date=obj_in.date,
             location=obj_in.location,
             notes=obj_in.notes,
-            questionnaire_id=obj_in.questionnaire_id,
             owner_id=owner_id,
             organization_id=organization_id,
         )

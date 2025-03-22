@@ -1,8 +1,10 @@
-import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
+from app.schemas.base import IdentifiedBase
 
 
 class ChatMessageBase(BaseModel):
@@ -13,26 +15,24 @@ class ChatMessageBase(BaseModel):
 
 class ChatMessageCreate(ChatMessageBase):
     """Create schema for chat message"""
-    interview_id: uuid.UUID
-    user_id: uuid.UUID
+    interview_id: UUID
+    user_id: UUID
     tokens_used: int = 0
-    chat_session_id: Optional[uuid.UUID] = None
+    chat_session_id: Optional[UUID] = None
 
 
-class ChatMessageOut(ChatMessageBase):
+class ChatMessageOut(ChatMessageBase, IdentifiedBase):
     """Output schema for chat message"""
-    id: uuid.UUID
-    created_at: datetime
-    chat_session_id: Optional[uuid.UUID] = None
-
-    class Config:
-        orm_mode = True
+    interview_id: UUID
+    user_id: UUID
+    tokens_used: int = 0
+    chat_session_id: Optional[UUID] = None
 
 
 class ChatRequest(BaseModel):
     """Schema for chat request"""
     message: str
-    chat_session_id: Optional[uuid.UUID] = None
+    chat_session_id: Optional[UUID] = None
 
 
 class ChatResponse(BaseModel):
@@ -40,7 +40,7 @@ class ChatResponse(BaseModel):
     user_message: ChatMessageOut
     assistant_message: ChatMessageOut
     remaining_tokens: int
-    chat_session_id: Optional[uuid.UUID] = None
+    chat_session_id: Optional[UUID] = None
 
 
 class ChatSessionBase(BaseModel):
@@ -57,16 +57,15 @@ class ChatSessionUpdate(BaseModel):
     """Update schema for chat session"""
     title: str
 
+    model_config = ConfigDict(extra="ignore")
 
-class ChatSessionOut(ChatSessionBase):
+
+class ChatSessionOut(ChatSessionBase, IdentifiedBase):
     """Output schema for chat session"""
-    id: uuid.UUID
-    interview_id: uuid.UUID
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        orm_mode = True
+    interview_id: UUID
+    message_count: Optional[int] = None
+    latest_message: Optional[str] = None
+    latest_message_time: Optional[datetime] = None
 
 
 class TranscriptMatch(BaseModel):

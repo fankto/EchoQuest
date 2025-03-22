@@ -55,7 +55,7 @@ export function LoginForm() {
       formData.append('username', values.email)
       formData.append('password', values.password)
       
-      const response = await api.post<AuthResponse>('/api/auth/login', formData.toString(), {
+      const response = await api.post<AuthResponse>('/auth/login', formData.toString(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -66,6 +66,8 @@ export function LoginForm() {
       localStorage.setItem('token', access_token)
       localStorage.setItem('refreshToken', refresh_token)
       
+      console.log('Authentication successful, tokens stored')
+      
       // Update auth context
       await login()
       
@@ -73,7 +75,7 @@ export function LoginForm() {
       router.push('/')
       toast.success('Login successful!')
     } catch (error: unknown) {
-      console.error(error)
+      console.error('Login error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.'
       toast.error(errorMessage)
     } finally {

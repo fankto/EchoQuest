@@ -23,6 +23,7 @@ import { toast } from 'sonner'
 import { Icons } from '@/components/ui/icons'
 import { UploadAudio } from './upload-audio'
 import api from '@/lib/api-client'
+import { useAuth } from '@/hooks/use-auth'
 
 // Define questionnaire type
 interface Questionnaire {
@@ -45,6 +46,15 @@ export function InterviewForm() {
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([])
   const [audioFiles, setAudioFiles] = useState<File[]>([])
   const router = useRouter()
+  const { isAuthenticated, user } = useAuth()
+
+  // Check authentication when component loads
+  useEffect(() => {
+    if (!isAuthenticated && !user) {
+      toast.error('You must be logged in to create an interview')
+      router.push('/auth/login')
+    }
+  }, [isAuthenticated, user, router])
 
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -63,7 +73,7 @@ export function InterviewForm() {
   useEffect(() => {
     const fetchQuestionnaires = async () => {
       try {
-        const data = await api.get<Questionnaire[]>('/api/questionnaires')
+        const data = await api.get<Questionnaire[]>('/questionnaires')
         setQuestionnaires(data)
       } catch (error) {
         console.error('Failed to load questionnaires:', error)
@@ -93,23 +103,51 @@ export function InterviewForm() {
       return
     }
 
+    // Check authentication
+    const token = localStorage.getItem('token')
+    if (!token || !isAuthenticated || !user) {
+      console.log('Authentication missing or invalid, redirecting to login')
+      toast.error('You must be logged in to create an interview')
+      router.push('/auth/login')
+      return
+    }
+
     setIsLoading(true)
 
     try {
       // Ensure date is in ISO format
-      const formattedValues = {
-        ...values,
+      const formattedValues: {
+        title: string;
+        interviewee_name: string;
+        date: string;
+        location?: string;
+        notes?: string;
+        questionnaire_id?: string;
+      } = {
+        title: values.title,
+        interviewee_name: values.interviewee_name,
         date: new Date(values.date).toISOString(),
-        // Make sure questionnaire_id is either a valid UUID or null (not empty string)
-        questionnaire_id: values.questionnaire_id && values.questionnaire_id.trim() !== '' 
-          ? values.questionnaire_id 
-          : null
+      }
+
+      // Only add optional fields if they have values
+      if (values.location) {
+        formattedValues.location = values.location
+      }
+      
+      if (values.notes) {
+        formattedValues.notes = values.notes
+      }
+
+      // Add questionnaire_id if selected
+      if (values.questionnaire_id && values.questionnaire_id.trim() !== '') {
+        formattedValues.questionnaire_id = values.questionnaire_id
       }
 
       console.log('Creating interview with values:', formattedValues)
+      console.log(`Using authentication token: ${token.substring(0, 10)}...`)
 
       // First create the interview
-      const interviewResponse = await api.post<{ id: string }>('/api/interviews', formattedValues)
+      const interviewResponse = await api.post<{ id: string }>('/interviews', formattedValues)
       console.log('Interview created:', interviewResponse)
       
       try {
@@ -120,7 +158,7 @@ export function InterviewForm() {
           formData.append('files', file)
         }
 
-        await api.upload(`/api/interviews/${interviewResponse.id}/upload`, formData)
+        await api.upload(`/interviews/${interviewResponse.id}/upload`, formData)
 
         toast.success('Interview created successfully')
         router.push(`/interviews/${interviewResponse.id}`)
@@ -139,6 +177,14 @@ export function InterviewForm() {
           errorMessage = "You don't have enough interview credits available"
         } else if (error.message.includes("[object Object]")) {
           errorMessage = "Server validation error. Please check your form inputs."
+        } else if (error.message.includes("No response from server")) {
+          errorMessage = "Server connection error. This could be due to CORS or authentication issues."
+          console.error("Detailed error info:", {
+            message: error.message,
+            stack: error.stack,
+            token: !!localStorage.getItem('token')
+          })
+          // Don't automatically log out - might be a temporary CORS issue
         } else {
           // Use the actual error message
           errorMessage = `Error: ${error.message}`

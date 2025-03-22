@@ -26,7 +26,7 @@ export default function Auth0CallbackPage() {
         }
         
         // Exchange code for tokens
-        const response = await api.post<AuthResponse>('/api/auth/auth0/token', { code })
+        const response = await api.post<AuthResponse>('/auth/auth0/token', { code })
         
         // Store tokens
         const { access_token, refresh_token } = response
@@ -34,7 +34,10 @@ export default function Auth0CallbackPage() {
         localStorage.setItem('refreshToken', refresh_token)
         
         // Update auth context
-        await login()
+        const user = await login()
+        if (!user) {
+          throw new Error('Failed to fetch user data')
+        }
         
         // Redirect to dashboard
         router.push('/')
@@ -56,6 +59,7 @@ export default function Auth0CallbackPage() {
           <h1 className="text-2xl font-bold">Authentication Error</h1>
           <p className="mt-2 text-muted-foreground">{error}</p>
           <button
+            type="button"
             className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
             onClick={() => router.push('/auth/login')}
           >
@@ -71,7 +75,7 @@ export default function Auth0CallbackPage() {
       <div className="text-center">
         <h1 className="text-2xl font-bold">Authenticating...</h1>
         <p className="mt-2 text-muted-foreground">Please wait while we complete your login.</p>
-        <div className="mt-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        <div className="mt-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     </div>
   )

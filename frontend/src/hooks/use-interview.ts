@@ -22,7 +22,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
 
     try {
       setIsLoading(true)
-      const data = await api.get<Interview>(`/api/interviews/${interviewId}`)
+      const data = await api.get<Interview>(`/interviews/${interviewId}`)
       setInterview(data)
       
       // Check if currently processing or transcribing
@@ -49,7 +49,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
   const createInterview = useCallback(async (data: any) => {
     try {
       setIsLoading(true)
-      const response = await api.post<Interview>('/api/interviews', data)
+      const response = await api.post<Interview>('/interviews', data)
       return response
     } catch (error: any) {
       setError(error)
@@ -64,7 +64,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
   const updateInterview = useCallback(async (interviewId: string, data: any) => {
     try {
       setIsLoading(true)
-      const response = await api.patch<Interview>(`/api/interviews/${interviewId}`, data)
+      const response = await api.patch<Interview>(`/interviews/${interviewId}`, data)
       
       if (id === interviewId) {
         setInterview(response)
@@ -94,7 +94,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
       
       console.log('FormData created with', files.length, 'files')
       
-      const response = await api.upload(`/api/interviews/${interviewId}/upload`, formData)
+      const response = await api.upload(`/interviews/${interviewId}/upload`, formData)
       
       if (id === interviewId) {
         setInterview(response)
@@ -117,7 +117,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
     
     try {
       setIsProcessing(true)
-      const response = await api.post<TaskResponse>(`/api/interviews/${interviewId}/process`)
+      const response = await api.post<TaskResponse>(`/interviews/${interviewId}/process`)
       toast.success('Audio processing started')
       return response
     } catch (error: any) {
@@ -132,13 +132,12 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
   const transcribeAudio = useCallback(async (interviewId: string = id!, language?: string) => {
     if (!interviewId) return null
     
+    const data = language ? { language } : {}
+    
     try {
       setIsTranscribing(true)
-      
-      const data = language ? { language } : {}
-      const response = await api.post<TaskResponse>(`/api/interviews/${interviewId}/transcribe`, data)
-      
-      toast.success('Transcription started')
+      const response = await api.post<TaskResponse>(`/interviews/${interviewId}/transcribe`, data)
+      toast.success('Transcription process started')
       return response
     } catch (error: any) {
       setIsTranscribing(false)
@@ -154,13 +153,12 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
     
     try {
       setIsLoading(true)
-      const response = await api.post<TaskResponse>(`/api/interviews/${interviewId}/generate-answers`)
-      
-      toast.success('Answer generation started')
+      const response = await api.post<TaskResponse>(`/interviews/${interviewId}/generate-answers`)
+      toast.success('Answers generation started')
       return response
     } catch (error: any) {
       setError(error)
-      toast.error('Failed to generate answers')
+      toast.error('Failed to start answers generation')
       throw error
     } finally {
       setIsLoading(false)
@@ -171,9 +169,8 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
   const deleteInterview = useCallback(async (interviewId: string) => {
     try {
       setIsLoading(true)
-      await api.delete(`/api/interviews/${interviewId}`)
+      await api.delete(`/interviews/${interviewId}`)
       toast.success('Interview deleted')
-      return true
     } catch (error: any) {
       setError(error)
       toast.error('Failed to delete interview')
@@ -192,7 +189,7 @@ export function useInterview({ id, autoFetch = true, pollStatus = false }: UseIn
     if (isProcessing || isTranscribing) {
       pollInterval = setInterval(async () => {
         try {
-          const data = await api.get<Interview>(`/api/interviews/${id}`)
+          const data = await api.get<Interview>(`/interviews/${id}`)
           
           if ((isProcessing && data.status !== InterviewStatus.PROCESSING) ||
               (isTranscribing && data.status !== InterviewStatus.TRANSCRIBING)) {

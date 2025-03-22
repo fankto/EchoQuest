@@ -176,7 +176,7 @@ export function TranscriptViewer({
 
   const handleSave = async () => {
     try {
-      await api.put(`/api/interviews/${interviewId}/update-transcription`, {
+      await api.put(`/interviews/${interviewId}/update-transcription`, {
         transcription: editedText
       })
       
@@ -195,7 +195,7 @@ export function TranscriptViewer({
   // New function to save edited segments
   const handleSaveSegments = async () => {
     try {
-      await api.put(`/api/interviews/${interviewId}/update-segments`, {
+      await api.put(`/interviews/${interviewId}/update-segments`, {
         segments: editedSegments
       })
       
