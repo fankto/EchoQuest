@@ -1,75 +1,92 @@
-version: '3.11'
+version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-echoquest}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-echoquest}
+      POSTGRES_DB: ${POSTGRES_DB:-echoquest}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-echoquest}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for session and cache management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Qdrant vector database for transcript embeddings
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT_TELEMETRY_DISABLED=true
+
+  # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     volumes:
       - ./backend:/app
-      - ./backend/src/audio_processor/temp:/app/src/audio_processor/temp
-      - ./backend/src/audio_processor/uploads:/app/src/audio_processor/uploads
-      - ./backend/src/interview_manager/permanent_storage:/app/src/interview_manager/permanent_storage
-      - ./backend/src/app.db:/app/src/app.db
-      - ./backend/.env:/app/.env
-      - model_cache:/root/.cache/huggingface
-      - torch_cache:/root/.cache/torch
-      - transformers_cache:/root/.cache/transformers
-    environment:
-      - PYTHONUNBUFFERED=1
-      - HF_TOKEN=${HF_TOKEN}
-      - TRANSFORMERS_CACHE=/root/.cache/huggingface
-      - TORCH_HOME=/root/.cache/torch
-      - HF_HOME=/root/.cache/huggingface
-      - XDG_CACHE_HOME=/root/.cache
-      - OLLAMA_HOST=http://ollama:11434
-    command: poetry run uvicorn src.main:app --host 0.0.0.0 --reload
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    depends_on:
-      - ollama
-
-  ollama:
-    image: ollama/ollama:latest
+      - ./data/uploads:/app/data/uploads
     ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-echoquest}:${POSTGRES_PASSWORD:-echoquest}@postgres:5432/${POSTGRES_DB:-echoquest}
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey}
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
 
+  # Frontend application
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - /app/.next
+    ports:
+      - "3001:3000"
     environment:
-      - CHOKIDAR_USEPOLLING=true
-    command: yarn start
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_ENVIRONMENT=development
+    depends_on:
+      - backend
 
 volumes:
-  node_modules:
-  model_cache:
-    driver: local
-  torch_cache:
-    driver: local
-  transformers_cache:
-    driver: local
-  ollama_data:
-    driver: local
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  uploads_data:
