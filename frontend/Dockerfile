@@ -1,19 +1,19 @@
-FROM node:18-alpine
+# frontend
+FROM node:18
 
 WORKDIR /app
 
-# Set environment variables
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000
+# Copy package.json and yarn.lock
+COPY package.json yarn.lock ./
 
 # Install dependencies
-COPY package.json /app/
-RUN npm install
+RUN yarn install
 
-# Copy application code
-COPY . /app/
+# Copy the rest of the application
+COPY . .
 
-# Expose port
+# Expose the port the app runs on
 EXPOSE 3000
 
-# Run the application in development mode
-CMD ["npm", "run", "dev"]
+# Command to run the application
+CMD ["yarn", "start"]
