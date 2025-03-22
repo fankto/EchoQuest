@@ -18,3 +18,4 @@ data/
 /backend/app.db
 backend/.envbackend/.env
 /backend/.env
+*.pyc
