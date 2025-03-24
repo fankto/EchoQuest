@@ -104,7 +104,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "User-Agent", "DNT", "Cache-Control", "X-Mx-ReqToken", "Keep-Alive", "X-Requested-With", "If-Modified-Since", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers"],
-    expose_headers=["Content-Length", "Content-Range", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers"],
+    expose_headers=["Content-Length", "Content-Range"],
     max_age=600,
 )
 
@@ -124,27 +124,50 @@ class CORSStaticFiles(StaticFiles):
     async def __call__(self, scope, receive, send):
         """Add CORS headers to static files"""
         if scope["type"] == "http":
-            response_started = False
+            # Get the origin from the request headers
+            origin = None
+            for header in scope.get("headers", []):
+                if header[0] == b"origin":
+                    origin = header[1].decode("latin-1")
+                    break
             
-            # Define the CORS headers
-            cors_headers = {
-                "Access-Control-Allow-Origin": "*",  # Allow any origin
-                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                "Access-Control-Max-Age": "600",  # 10 minutes
-            }
+            # Check if the origin is allowed
+            allowed_origin = None
+            if origin in settings.CORS_ORIGINS:
+                allowed_origin = origin
+            elif settings.CORS_ORIGINS:  # Fallback to the first allowed origin if origin not in the list
+                allowed_origin = settings.CORS_ORIGINS[0]
             
-            # Modify the send function to inject CORS headers
+            # Define a wrapper for the send function to add CORS headers
             async def cors_send(message):
-                nonlocal response_started
                 if message["type"] == "http.response.start":
-                    # Add the CORS headers to the response
-                    message.setdefault("headers", [])
-                    for key, value in cors_headers.items():
-                        message["headers"].append(
-                            (key.encode("latin-1"), value.encode("latin-1"))
-                        )
-                    response_started = True
+                    # Get original headers
+                    original_headers = list(message.get("headers", []))
+                    
+                    # Filter out any existing CORS headers
+                    new_headers = []
+                    cors_header_prefixes = [b"access-control-"]
+                    
+                    for header in original_headers:
+                        name, value = header
+                        skip_header = False
+                        for prefix in cors_header_prefixes:
+                            if name.lower().startswith(prefix):
+                                skip_header = True
+                                break
+                        if not skip_header:
+                            new_headers.append((name, value))
+                    
+                    # Add CORS headers if we have an allowed origin
+                    if allowed_origin:
+                        new_headers.append((b"access-control-allow-origin", allowed_origin.encode("latin-1")))
+                        new_headers.append((b"access-control-allow-methods", b"GET, HEAD, OPTIONS"))
+                        new_headers.append((b"access-control-allow-headers", b"Content-Type, Authorization"))
+                        new_headers.append((b"access-control-max-age", b"600"))
+                    
+                    # Update the headers in the message
+                    message["headers"] = new_headers
+                
                 await send(message)
             
             await super().__call__(scope, receive, cors_send)

@@ -201,6 +201,9 @@ async def delete_interview(
         # Delete from database (this will cascade to chat_messages and chat_sessions)
         logger.info(f"Removing interview {interview_id} from database")
         await interview_crud.remove(db, id=interview_id)
+        
+        # Commit the transaction to ensure changes are persisted
+        await db.commit()
 
         logger.info(f"Successfully deleted interview {interview_id}")
 

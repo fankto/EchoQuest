@@ -1,5 +1,6 @@
 import asyncio
 import os
+import shutil
 from pathlib import Path
 import uuid
 from typing import Dict, List, Optional, Tuple, Any
@@ -94,7 +95,7 @@ class TranscriptionService:
     )
     async def _optimize_audio(self, input_path: Path, output_path: Path) -> None:
         """
-        Optimize audio file for transcription
+        Optimize audio for transcription
 
         Args:
             input_path: Path to input audio file
@@ -121,17 +122,24 @@ class TranscriptionService:
                         .filter('volume', 2.0)  # Double the volume
                         .output(
                             temp_path,
-                            ar=48000,  # Set sample rate to 48kHz
+                            ar=16000,  # Reduce sample rate to 16kHz (was 48kHz)
                             ac=1,  # Convert to mono
                             acodec='pcm_s16le',  # 16-bit PCM
+                            audio_bitrate='64k',  # Add bitrate limit
                         )
                         .overwrite_output()
                         .run(quiet=False, capture_stdout=True, capture_stderr=True)
                     )
                 )
 
-                # Move the temp file to the final destination
-                os.replace(temp_path, output_path)
+                # Copy the temp file to the final destination instead of moving
+                # This works across different filesystems
+                shutil.copy2(temp_path, str(output_path))
+                # Clean up the temp file
+                try:
+                    os.unlink(temp_path)
+                except Exception as e:
+                    logger.warning(f"Could not remove temporary file {temp_path}: {e}")
 
             logger.info(f"Audio optimized: {input_path} -> {output_path}")
         except ffmpeg.Error as e:

@@ -210,7 +210,7 @@ export function TranscriptViewer({
   }
 
   // Modified function to handle segment edit start
-  const handleEditSegment = (segment: TranscriptSegment, index: number, e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleEditSegment = (segment: TranscriptSegment, index: number, e: React.MouseEvent<HTMLButtonElement | HTMLSpanElement | HTMLDivElement>) => {
     e.stopPropagation() // Prevent audio playback
     setEditingSegmentIndex(index)
     setEditedSegmentText(segment.text)
@@ -359,7 +359,7 @@ export function TranscriptViewer({
     )
   }
 
-  const playSegmentAudio = (segment: TranscriptSegment, index: number, e?: React.MouseEvent<HTMLButtonElement>) => {
+  const playSegmentAudio = (segment: TranscriptSegment, index: number, e?: React.MouseEvent<HTMLButtonElement | HTMLSpanElement | HTMLDivElement>) => {
     if (e) {
       e.stopPropagation();
     }
@@ -604,26 +604,26 @@ export function TranscriptViewer({
                               </span>
                               {audioUrl && (
                                 <>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6" 
-                                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => playSegmentAudio(segment, index, e)}
-                                    onKeyDown={(e: React.KeyboardEvent<HTMLButtonElement>) => handlePlaySegmentKeyDown(segment, index, e)}
+                                  <span 
+                                    className="inline-flex items-center justify-center h-6 w-6 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                    onClick={(e: React.MouseEvent<HTMLSpanElement>) => {
+                                      e.stopPropagation();
+                                      playSegmentAudio(segment, index);
+                                    }}
                                     title="Play segment"
                                   >
                                     <PlayCircle className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-6 w-6" 
-                                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => handleEditSegment(segment, index, e)}
-                                    onKeyDown={(e: React.KeyboardEvent<HTMLButtonElement>) => handleEditSegmentKeyPress(segment, index, e)}
+                                  </span>
+                                  <span 
+                                    className="inline-flex items-center justify-center h-6 w-6 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                                    onClick={(e: React.MouseEvent<HTMLSpanElement>) => {
+                                      e.stopPropagation();
+                                      handleEditSegment(segment, index, e as unknown as React.MouseEvent<HTMLButtonElement>);
+                                    }}
                                     title="Edit segment"
                                   >
                                     <Pencil className="h-4 w-4" />
-                                  </Button>
+                                  </span>
                                 </>
                               )}
                             </div>
